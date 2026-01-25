@@ -31,11 +31,11 @@ chmod +x scripts/release.sh
 
 ```cmd
 # 发布稳定版
-scripts\release.bat 0.1.0
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 0.1.0
 
 # 发布预发布版
-scripts\release.bat 0.1.0-beta --pre
-scripts\release.bat 0.2.0-rc1 --pre
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 0.1.0-beta --pre
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 0.2.0-rc1 --pre
 ```
 
 ## 版本号规则
@@ -87,7 +87,7 @@ git pull
 ./scripts/release.sh 0.1.0
 
 # Windows
-scripts\release.bat 0.1.0
+powershell -ExecutionPolicy Bypass -File scripts/release.ps1 0.1.0
 ```
 
 ### 3. 脚本执行流程
