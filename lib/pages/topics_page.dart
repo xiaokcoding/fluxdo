@@ -39,12 +39,15 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   bool _showSearchBar = true;
   List<TopicListFilter> _filters = [];
   final Map<TopicListFilter, GlobalKey<_TopicListState>> _listKeys = {};
+  int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _filters = _buildFilters(isLoggedIn: false);
+    final isLoggedIn = ref.read(currentUserProvider).value != null;
+    _filters = _buildFilters(isLoggedIn: isLoggedIn);
     _tabController = TabController(length: _filters.length, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _initListKeys();
   }
 
@@ -56,8 +59,14 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (_currentTabIndex == _tabController.index) return;
+    setState(() => _currentTabIndex = _tabController.index);
   }
 
   void _onScrollDirectionChanged(ScrollDirection direction) {
@@ -117,14 +126,15 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
     if (listEquals(desiredFilters, _filters)) return;
 
     final currentIndex = _tabController.index;
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     _filters = desiredFilters;
     _listKeys.clear();
     _initListKeys();
     _tabController = TabController(length: _filters.length, vsync: this);
-    if (currentIndex < _filters.length) {
-      _tabController.index = currentIndex;
-    }
+    _tabController.addListener(_handleTabChange);
+    _currentTabIndex = currentIndex < _filters.length ? currentIndex : 0;
+    _tabController.index = _currentTabIndex;
   }
 
   void _showTopicIdDialog(BuildContext context) {
@@ -271,12 +281,16 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: _filters.map((filter) => _TopicList(
-              key: _listKeys[filter],
-              filter: filter,
-              onLoginRequired: _goToLogin,
-              onScrollDirectionChanged: _onScrollDirectionChanged,
-            )).toList(),
+            children: [
+              for (var i = 0; i < _filters.length; i++)
+                _TopicList(
+                  key: _listKeys[_filters[i]],
+                  filter: _filters[i],
+                  isActive: (i - _currentTabIndex).abs() <= 1,
+                  onLoginRequired: _goToLogin,
+                  onScrollDirectionChanged: _onScrollDirectionChanged,
+                ),
+            ],
           ),
         ),
       ],
@@ -286,12 +300,14 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
 
 class _TopicList extends ConsumerStatefulWidget {
   final TopicListFilter filter;
+  final bool isActive;
   final VoidCallback onLoginRequired;
   final ValueChanged<ScrollDirection> onScrollDirectionChanged;
 
   const _TopicList({
     super.key,
     required this.filter,
+    required this.isActive,
     required this.onLoginRequired,
     required this.onScrollDirectionChanged,
   });
@@ -303,6 +319,7 @@ class _TopicList extends ConsumerStatefulWidget {
 class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingNewTopics = false;
+  bool _readyToBuild = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -311,6 +328,10 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _readyToBuild = true);
+    });
   }
 
   @override
@@ -356,7 +377,13 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+    if (!widget.isActive) {
+      return const SizedBox.expand();
+    }
+    if (!_readyToBuild) {
+      return const SizedBox.expand();
+    }
+
     final currentUserAsync = ref.watch(currentUserProvider);
     final user = currentUserAsync.value;
 

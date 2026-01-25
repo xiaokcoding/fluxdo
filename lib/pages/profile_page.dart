@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
@@ -17,7 +18,6 @@ import '../widgets/common/loading_spinner.dart';
 import '../widgets/common/notification_icon_button.dart';
 import '../widgets/common/flair_badge.dart';
 import '../providers/app_state_refresher.dart';
-import '../services/auth_log_service.dart';
 import 'metaverse_page.dart';
 import '../widgets/ldc_balance_card.dart';
 import '../providers/ldc_providers.dart';
@@ -32,13 +32,43 @@ class ProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
+  // 缓存头像 widget，避免重复创建导致闪烁
+  Widget? _cachedAvatarWidget;
+  int? _cachedUserId;
 
   @override
   void initState() {
     super.initState();
+    // 进入页面后静默刷新用户数据（不触发 loading 状态）
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.invalidate(currentUserProvider);
+      if (mounted) {
+        final current = ref.read(currentUserProvider).value;
+        if (current != null) {
+          // 使用 refresh 在后台更新数据，不会触发 loading 状态，避免 UI 闪烁
+          // 忽略返回值，因为我们只是触发后台刷新
+          ref.refresh(currentUserProvider.future).ignore();
+          ref.refresh(userSummaryProvider.future).ignore();
+        }
+      }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 在这里初始化头像 widget，此时可以安全地访问 Theme.of(context)
+    final user = ref.read(currentUserProvider).value;
+    if (_cachedAvatarWidget == null || _cachedUserId != user?.id) {
+      _initAvatarWidget(user);
+    }
+  }
+
+  void _initAvatarWidget(User? user) {
+    _cachedAvatarWidget = _ProfileAvatar(
+      key: ValueKey('profile-avatar-${user?.id}'),
+      user: user,
+    );
+    _cachedUserId = user?.id;
   }
 
   Future<void> _goToLogin() async {
@@ -158,42 +188,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         );
       } : null,
       child: Container(
-        color: Colors.transparent, 
+        color: Colors.transparent,
         child: Row(
           children: [
-            // 头像
-            AvatarWithFlair(
-              flairSize: 24,
-              flairRight: -2,
-              flairBottom: -2,
-              flairUrl: user?.flairUrl,
-              flairName: user?.flairName,
-              flairBgColor: user?.flairBgColor,
-              flairColor: user?.flairColor,
-              avatar: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    width: 1, // 回归标准边框宽度
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 36, // 保持稍大的尺寸
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  backgroundImage: user?.getAvatarUrl() != null && user!.getAvatarUrl().isNotEmpty
-                      ? discourseImageProvider(user.getAvatarUrl())
-                      : null,
-                  child: user?.getAvatarUrl().isEmpty ?? true
-                      ? Icon(
-                          user != null ? Icons.person : Icons.person_outline,
-                          size: 36,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        )
-                      : null,
-                ),
-              ),
-            ),
+            // 使用缓存的头像 widget
+            _cachedAvatarWidget ?? const SizedBox(width: 72, height: 72),
             const SizedBox(width: 20),
             // 用户信息
             Expanded(
@@ -611,5 +610,101 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ),
       );
     }
+  }
+}
+
+/// 独立的头像组件，使用 AutomaticKeepAliveClientMixin 避免重建
+class _ProfileAvatar extends StatefulWidget {
+  final User? user;
+
+  const _ProfileAvatar({super.key, required this.user});
+
+  @override
+  State<_ProfileAvatar> createState() => _ProfileAvatarState();
+}
+
+class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveClientMixin {
+  late String _avatarUrl;
+  ImageProvider? _cachedImageProvider;
+  Widget? _cachedAvatarWithFlair;
+  String? _cachedFlairUrl;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _avatarUrl = widget.user?.getAvatarUrl() ?? '';
+    _cachedFlairUrl = widget.user?.flairUrl;
+    if (_avatarUrl.isNotEmpty) {
+      _cachedImageProvider = discourseImageProvider(_avatarUrl);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ProfileAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 只有当 URL 真的变化时才更新 ImageProvider
+    final newUrl = widget.user?.getAvatarUrl() ?? '';
+    final newFlairUrl = widget.user?.flairUrl;
+
+    if (newUrl != _avatarUrl) {
+      _avatarUrl = newUrl;
+      _cachedImageProvider = newUrl.isNotEmpty ? discourseImageProvider(newUrl) : null;
+      _cachedAvatarWithFlair = null; // 头像变化，清除缓存
+    }
+
+    if (newFlairUrl != _cachedFlairUrl) {
+      _cachedFlairUrl = newFlairUrl;
+      _cachedAvatarWithFlair = null; // flair 变化，清除缓存
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // 必须调用以支持 AutomaticKeepAliveClientMixin
+
+    // 如果已经缓存了 AvatarWithFlair widget，直接返回
+    if (_cachedAvatarWithFlair != null) {
+      return _cachedAvatarWithFlair!;
+    }
+
+    final theme = Theme.of(context);
+    final user = widget.user;
+
+    _cachedAvatarWithFlair = AvatarWithFlair(
+      key: ValueKey('profile-avatar-flair-${user?.id}-${user?.flairUrl}'),
+      flairSize: 24,
+      flairRight: -2,
+      flairBottom: -2,
+      flairUrl: user?.flairUrl,
+      flairName: user?.flairName,
+      flairBgColor: user?.flairBgColor,
+      flairColor: user?.flairColor,
+      avatar: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: theme.colorScheme.surfaceContainerHighest,
+            width: 1,
+          ),
+        ),
+        child: CircleAvatar(
+          radius: 36,
+          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+          backgroundImage: _cachedImageProvider,
+          child: _avatarUrl.isEmpty
+              ? Icon(
+                  user != null ? Icons.person : Icons.person_outline,
+                  size: 36,
+                  color: theme.colorScheme.onSurfaceVariant,
+                )
+              : null,
+        ),
+      ),
+    );
+
+    return _cachedAvatarWithFlair!;
   }
 }

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../services/discourse_service.dart';
+import '../services/preloaded_data_service.dart';
 
 /// Discourse 服务 Provider
 final discourseServiceProvider = Provider((ref) => DiscourseService());
@@ -18,13 +20,50 @@ final authStateProvider = StreamProvider<void>((ref) {
 });
 
 /// 当前用户 Provider
-/// 使用 FutureProvider 实现自动加载和刷新
-final currentUserProvider = FutureProvider<User?>((ref) async {
-  final service = ref.watch(discourseServiceProvider);
-  // 只需要获取一次用户名，后续通过 getUser 获取详情
-  // 这里直接复用 service.getCurrentUser()
-  return service.getCurrentUser();
-});
+/// 优先使用预加载数据同步返回，避免启动时短暂显示未登录状态
+class CurrentUserNotifier extends AsyncNotifier<User?> {
+  @override
+  FutureOr<User?> build() {
+    final service = ref.read(discourseServiceProvider);
+    final preloaded = PreloadedDataService().currentUserSync;
+    if (preloaded != null) {
+      final preloadedUser = User.fromJson(preloaded);
+      service.currentUserNotifier.value = preloadedUser;
+      _refreshUser(service, preloadedUser);
+      return preloadedUser;
+    }
+    return _loadUser(service);
+  }
+
+  Future<User?> _loadUser(DiscourseService service) async {
+    final preloadedUser = await service.getPreloadedCurrentUser();
+    final user = await service.getCurrentUser();
+    if (user == null) return preloadedUser;
+    if (preloadedUser == null) return user;
+    return _mergeUser(user, preloadedUser);
+  }
+
+  void _refreshUser(DiscourseService service, User preloadedUser) {
+    Future(() async {
+      final user = await service.getCurrentUser();
+      if (user == null) return;
+      state = AsyncValue.data(_mergeUser(user, preloadedUser));
+    });
+  }
+
+  User _mergeUser(User user, User preloadedUser) {
+    return user.copyWith(
+      unreadNotifications: preloadedUser.unreadNotifications,
+      unreadHighPriorityNotifications: preloadedUser.unreadHighPriorityNotifications,
+      allUnreadNotificationsCount: preloadedUser.allUnreadNotificationsCount,
+      seenNotificationId: preloadedUser.seenNotificationId,
+      notificationChannelPosition: preloadedUser.notificationChannelPosition,
+    );
+  }
+}
+
+final currentUserProvider =
+    AsyncNotifierProvider<CurrentUserNotifier, User?>(CurrentUserNotifier.new);
 
 /// 用户统计数据 Provider
 final userSummaryProvider = FutureProvider<UserSummary?>((ref) async {

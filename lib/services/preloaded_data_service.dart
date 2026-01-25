@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import '../constants.dart';
 import '../models/topic.dart';
@@ -47,6 +48,7 @@ class PreloadedDataService {
 
   /// 是否已加载数据
   bool get isLoaded => _loaded;
+  Map<String, dynamic>? get currentUserSync => _currentUser;
 
   /// 设置登录失效回调
   void setAuthInvalidCallback(void Function() callback) {
@@ -183,7 +185,8 @@ class PreloadedDataService {
     if (_topicListData == null) return null;
 
     try {
-      final response = TopicListResponse.fromJson(_topicListData!);
+      final response = _cachedTopicListResponse ?? TopicListResponse.fromJson(_topicListData!);
+      _cachedTopicListResponse ??= response;
       // 消费后清除，避免重复使用过期数据
       _topicListData = null;
       return response;
@@ -269,7 +272,7 @@ class PreloadedDataService {
       );
 
       final html = response.data as String;
-      _parsePreloadedDataFromHtml(html);
+      await _parsePreloadedDataFromHtml(html);
       _loaded = true;
       debugPrint('[PreloadedData] 数据加载成功');
     } catch (e) {
@@ -280,7 +283,7 @@ class PreloadedDataService {
   }
 
   /// 从 HTML 中解析 data-preloaded 属性
-  void _parsePreloadedDataFromHtml(String html) {
+  Future<void> _parsePreloadedDataFromHtml(String html) async {
     _extractCsrfTokenFromHtml(html);
     // 提取 data-preloaded 属性内容
     final match = RegExp(r'data-preloaded="([^"]*)"').firstMatch(html);
@@ -297,7 +300,7 @@ class PreloadedDataService {
         .replaceAll('&gt;', '>')
         .replaceAll('&#39;', "'");
 
-    _parsePreloadedDataString(decoded);
+    await _parsePreloadedDataString(decoded);
   }
 
   void _extractCsrfTokenFromHtml(String html) {
@@ -318,7 +321,7 @@ class PreloadedDataService {
   }
 
   /// 解析预加载数据字符串
-  void _parsePreloadedDataString(String dataString) {
+  Future<void> _parsePreloadedDataString(String dataString) async {
     // 解码 HTML entities（WebView 返回的数据可能也需要解码）
     final decoded = dataString
         .replaceAll('&quot;', '"')
@@ -329,7 +332,11 @@ class PreloadedDataService {
 
     try {
       // 外层是 JSON 对象，key 是数据类型，value 是 JSON 字符串
-      final Map<String, dynamic> preloaded = jsonDecode(decoded);
+      final preloaded = await compute(_decodePreloadedJsonInIsolate, decoded);
+      if (preloaded == null) {
+        debugPrint('[PreloadedData] 预加载 JSON 解析为空');
+        return;
+      }
 
       // 解析 currentUser
       if (preloaded.containsKey('currentUser')) {
@@ -405,7 +412,8 @@ class PreloadedDataService {
         try {
           final value = preloaded[key];
           if (value is String) {
-            _topicListData = jsonDecode(value) as Map<String, dynamic>;
+            _decodeTopicListAsync(value);
+            return;
           } else if (value is Map) {
             _topicListData = value as Map<String, dynamic>;
           }
@@ -414,15 +422,7 @@ class PreloadedDataService {
             final topicsCount = (_topicListData?['topic_list']?['topics'] as List?)?.length ??
                                (_topicListData?['topics'] as List?)?.length ?? 0;
             debugPrint('[PreloadedData] topic_list 解析成功 (key=$key), topics=$topicsCount');
-
-            // 立即解析为 TopicListResponse 并缓存
-            try {
-              _cachedTopicListResponse = TopicListResponse.fromJson(_topicListData!);
-              debugPrint('[PreloadedData] TopicListResponse 缓存成功');
-            } catch (e) {
-              debugPrint('[PreloadedData] 解析 TopicListResponse 失败: $e');
-              _cachedTopicListResponse = null;
-            }
+            _parseTopicListResponseAsync(_topicListData!);
             return;
           }
         } catch (e) {
@@ -460,4 +460,51 @@ class PreloadedDataService {
       debugPrint('[PreloadedData] 检查登录失效失败: $e');
     }
   }
+
+  void _decodeTopicListAsync(String rawJson) {
+    compute(_decodeTopicListInIsolate, rawJson).then((decoded) {
+      if (decoded == null) return;
+      _topicListData = decoded;
+      final topicsCount = (_topicListData?['topic_list']?['topics'] as List?)?.length ??
+          (_topicListData?['topics'] as List?)?.length ??
+          0;
+      debugPrint('[PreloadedData] topic_list 解析成功 (async), topics=$topicsCount');
+      _parseTopicListResponseAsync(decoded);
+    }).catchError((e) {
+      debugPrint('[PreloadedData] 异步解析 topic_list 失败: $e');
+    });
+  }
+
+  void _parseTopicListResponseAsync(Map<String, dynamic> data) {
+    Future(() {
+      try {
+        _cachedTopicListResponse = TopicListResponse.fromJson(data);
+        debugPrint('[PreloadedData] TopicListResponse 异步缓存成功');
+      } catch (e) {
+        debugPrint('[PreloadedData] 异步解析 TopicListResponse 失败: $e');
+      }
+    });
+  }
+}
+
+Map<String, dynamic>? _decodeTopicListInIsolate(String rawJson) {
+  final decoded = jsonDecode(rawJson);
+  if (decoded is Map<String, dynamic>) {
+    return decoded;
+  }
+  if (decoded is Map) {
+    return decoded.cast<String, dynamic>();
+  }
+  return null;
+}
+
+Map<String, dynamic>? _decodePreloadedJsonInIsolate(String rawJson) {
+  final decoded = jsonDecode(rawJson);
+  if (decoded is Map<String, dynamic>) {
+    return decoded;
+  }
+  if (decoded is Map) {
+    return decoded.cast<String, dynamic>();
+  }
+  return null;
 }

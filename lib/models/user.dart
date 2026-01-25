@@ -92,6 +92,55 @@ class User {
     this.gamificationScore,
   });
 
+  User copyWith({
+    int? unreadNotifications,
+    int? unreadHighPriorityNotifications,
+    int? allUnreadNotificationsCount,
+    int? seenNotificationId,
+    int? notificationChannelPosition,
+  }) {
+    return User(
+      id: id,
+      username: username,
+      name: name,
+      avatarTemplate: avatarTemplate,
+      animatedAvatar: animatedAvatar,
+      trustLevel: trustLevel,
+      bio: bio,
+      bioCooked: bioCooked,
+      bioRaw: bioRaw,
+      cardBackgroundUploadUrl: cardBackgroundUploadUrl,
+      profileBackgroundUploadUrl: profileBackgroundUploadUrl,
+      unreadNotifications: unreadNotifications ?? this.unreadNotifications,
+      unreadHighPriorityNotifications:
+          unreadHighPriorityNotifications ?? this.unreadHighPriorityNotifications,
+      allUnreadNotificationsCount:
+          allUnreadNotificationsCount ?? this.allUnreadNotificationsCount,
+      seenNotificationId: seenNotificationId ?? this.seenNotificationId,
+      notificationChannelPosition:
+          notificationChannelPosition ?? this.notificationChannelPosition,
+      status: status,
+      lastPostedAt: lastPostedAt,
+      lastSeenAt: lastSeenAt,
+      createdAt: createdAt,
+      location: location,
+      website: website,
+      websiteName: websiteName,
+      flairUrl: flairUrl,
+      flairName: flairName,
+      flairBgColor: flairBgColor,
+      flairColor: flairColor,
+      flairGroupId: flairGroupId,
+      canFollow: canFollow,
+      isFollowed: isFollowed,
+      totalFollowers: totalFollowers,
+      totalFollowing: totalFollowing,
+      canSendPrivateMessages: canSendPrivateMessages,
+      canSendPrivateMessageToUser: canSendPrivateMessageToUser,
+      gamificationScore: gamificationScore,
+    );
+  }
+
   factory User.fromJson(Map<String, dynamic> json) {
     String? resolve(String? url) => url != null ? UrlHelper.resolveUrl(url) : null;
     

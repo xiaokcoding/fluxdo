@@ -21,6 +21,7 @@ import 'services/network/doh_proxy/proxy_certificate.dart';
 import 'services/network_logger.dart';
 import 'services/update_service.dart';
 import 'services/update_checker_helper.dart';
+import 'models/user.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/theme_provider.dart';
@@ -143,6 +144,8 @@ class _MainPageState extends ConsumerState<MainPage> {
   int _currentIndex = 0;
   ProviderSubscription<AsyncValue<String>>? _authErrorSub;
   ProviderSubscription<AsyncValue<void>>? _authStateSub;
+  ProviderSubscription<AsyncValue<User?>>? _currentUserSub;
+  bool _messageBusInitialized = false;
   int? _lastTappedIndex;
   DateTime? _lastTapTime;
 
@@ -173,6 +176,18 @@ class _MainPageState extends ConsumerState<MainPage> {
           AppStateRefresher.refreshAll(ref);
         }
       });
+    });
+    _currentUserSub = ref.listenManual<AsyncValue<User?>>(currentUserProvider, (_, next) {
+      final user = next.value;
+      if (user != null && !_messageBusInitialized) {
+        _messageBusInitialized = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(messageBusInitProvider);
+        });
+      } else if (user == null) {
+        _messageBusInitialized = false;
+      }
     });
   }
 
@@ -208,6 +223,7 @@ class _MainPageState extends ConsumerState<MainPage> {
   void dispose() {
     _authErrorSub?.close();
     _authStateSub?.close();
+    _currentUserSub?.close();
     super.dispose();
   }
 
@@ -233,11 +249,6 @@ class _MainPageState extends ConsumerState<MainPage> {
     // 监听当前用户状态
     final currentUserAsync = ref.watch(currentUserProvider);
     final user = currentUserAsync.value;
-    
-    // 激活 MessageBus 批量订阅（通知 + 话题追踪频道）
-    if (user != null) {
-      ref.watch(messageBusInitProvider);
-    }
 
     return Scaffold(
       // App bar removed, delegated to individual pages
