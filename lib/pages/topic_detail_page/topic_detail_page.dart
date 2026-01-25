@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
@@ -40,7 +41,7 @@ class TopicDetailPage extends ConsumerStatefulWidget {
   ConsumerState<TopicDetailPage> createState() => _TopicDetailPageState();
 }
 
-class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
+class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsBindingObserver {
   /// 唯一实例 ID，确保每次打开页面都创建新的 provider 实例
   final String _instanceId = const Uuid().v4();
 
@@ -59,10 +60,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
   bool _isRefreshing = false;
 
   Timer? _throttleTimer;
+  Set<int> _lastReadPostNumbers = {};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     final trackEnabled = ref.read(currentUserProvider).value != null;
 
@@ -108,6 +111,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
   @override
   void dispose() {
     _throttleTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.scrollController.removeListener(_onScroll);
     _scrollController.removeListener(_onScrollStateChanged);
     _highlightController.removeListener(_onHighlightChanged);
@@ -117,6 +121,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
     _highlightController.dispose();
     _visibilityTracker.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final hasFocus = state == AppLifecycleState.resumed;
+    _screenTrack.setHasFocus(hasFocus);
   }
 
   void _onScrollStateChanged() {
@@ -209,6 +219,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
   void _handleVoteChanged() {
     final params = TopicDetailParams(widget.topicId, postNumber: _scrollController.currentPostNumber, instanceId: _instanceId);
     ref.invalidate(topicDetailProvider(params));
+  }
+
+  void _updateReadPostNumbers(Set<int> readPostNumbers) {
+    if (setEquals(_lastReadPostNumbers, readPostNumbers)) return;
+    _lastReadPostNumbers = readPostNumbers;
+    _visibilityTracker.setReadPostNumbers(readPostNumbers);
   }
 
   Future<void> _handleRefresh() async {
@@ -610,6 +626,18 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
 
     final posts = detail.postStream.posts;
     final hasFirstPost = posts.isNotEmpty && posts.first.postNumber == 1;
+    final sessionState = ref.watch(topicSessionProvider(widget.topicId));
+
+    if (posts.isNotEmpty) {
+      final readPostNumbers = <int>{};
+      for (final post in posts) {
+        if (post.read) {
+          readPostNumbers.add(post.postNumber);
+        }
+      }
+      readPostNumbers.addAll(sessionState.readPostNumbers);
+      _updateReadPostNumbers(readPostNumbers);
+    }
 
     // 计算分割线位置
     int? dividerPostIndex;

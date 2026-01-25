@@ -10,6 +10,7 @@ class PostVisibilityTracker extends ChangeNotifier {
 
   /// 当前可见的帖子号集合
   final Set<int> _visiblePostNumbers = {};
+  final Set<int> _readPostNumbers = {};
 
   /// 当前可见的最顶部帖子的 stream 索引（1-based）
   int _currentVisibleStreamIndex = 1;
@@ -56,12 +57,21 @@ class PostVisibilityTracker extends ChangeNotifier {
     _throttledUpdateScreenTrack();
   }
 
+  void setReadPostNumbers(Set<int> readPostNumbers) {
+    if (setEquals(_readPostNumbers, readPostNumbers)) return;
+    _readPostNumbers
+      ..clear()
+      ..addAll(readPostNumbers);
+    _throttledUpdateScreenTrack();
+  }
+
   /// 节流更新 ScreenTrack
   void _throttledUpdateScreenTrack() {
     if (_screenTrackThrottleTimer?.isActive ?? false) return;
     _screenTrackThrottleTimer = Timer(const Duration(milliseconds: 100), () {
       if (_trackEnabled) {
-        screenTrack.setOnscreen(_visiblePostNumbers);
+        final readOnscreen = _visiblePostNumbers.intersection(_readPostNumbers);
+        screenTrack.setOnscreen(_visiblePostNumbers, readOnscreen: readOnscreen);
       }
       // 更新当前可见帖子的 stream 索引
       if (_visiblePostNumbers.isNotEmpty) {

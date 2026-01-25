@@ -751,26 +751,28 @@ class DiscourseService {
   }
 
   /// 上报帖子阅读时间 (topics/timings)
-  Future<void> topicsTimings({
+  Future<int?> topicsTimings({
     required int topicId,
     required int topicTime,
     required Map<int, int> timings,
   }) async {
     try {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated) return null;
       final data = <String, dynamic>{
         'topic_id': topicId,
         'topic_time': topicTime,
       };
       timings.forEach((k, v) => data['timings[$k]'] = v);
 
-      await _dio.post(
+      final response = await _dio.post(
         '/topics/timings',
         data: data,
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );
+      return response.statusCode;
     } on DioException catch (e) {
       print('[DiscourseService] topicsTimings failed: ${e.response?.statusCode}');
+      return e.response?.statusCode;
     }
   }
 
