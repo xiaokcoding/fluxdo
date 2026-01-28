@@ -33,12 +33,51 @@ class _CodeBlockWidget extends StatefulWidget {
 class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
   final _vController = ScrollController();
   final _hController = ScrollController();
+  final _lineNumberVController = ScrollController();
+  List<HighlightToken>? _tokens;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHighlight();
+    // 同步行号和代码的垂直滚动
+    _vController.addListener(_syncLineNumberScroll);
+  }
 
   @override
   void dispose() {
+    _vController.removeListener(_syncLineNumberScroll);
     _vController.dispose();
     _hController.dispose();
+    _lineNumberVController.dispose();
     super.dispose();
+  }
+
+  void _syncLineNumberScroll() {
+    if (_lineNumberVController.hasClients) {
+      _lineNumberVController.jumpTo(_vController.offset);
+    }
+  }
+
+  Future<void> _loadHighlight() async {
+    final text = widget.codeElement.text as String;
+    final className = widget.codeElement.className as String;
+    String? language;
+    if (className.isNotEmpty) {
+      final match = RegExp(r'lang-(\w+)').firstMatch(className);
+      if (match != null) {
+        language = match.group(1);
+      }
+    }
+    try {
+      final tokens = await HighlighterService.instance.highlightAsync(
+        text,
+        language: language,
+      );
+      if (mounted) setState(() => _tokens = tokens);
+    } catch (e) {
+      // 高亮失败
+    }
   }
 
   @override
@@ -49,27 +88,41 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
       final theme = Theme.of(context);
       final isDark = theme.brightness == Brightness.dark;
 
-      String? language;
       String displayLanguage = 'TEXT';
       if (className.isNotEmpty) {
         final match = RegExp(r'lang-(\w+)').firstMatch(className);
         if (match != null) {
-          language = match.group(1);
-          displayLanguage = language!.toUpperCase();
+          displayLanguage = match.group(1)!.toUpperCase();
         }
       }
 
       final bgColor = isDark ? const Color(0xff282a36) : const Color(0xfff6f8fa);
       final borderColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
       final thumbColor = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.15);
+      final lineNumberColor = isDark
+          ? Colors.white.withValues(alpha: 0.35)
+          : Colors.black.withValues(alpha: 0.35);
 
-      final codeContent = HighlighterService.instance.buildHighlightView(
-        text,
-        language: language,
-        isDark: isDark,
-        backgroundColor: Colors.transparent,
-        padding: const EdgeInsets.all(12),
-      );
+      // 使用预加载的字体样式，避免字体加载导致高度跳动
+      final baseStyle = HighlighterService.instance.firaCodeStyle;
+      final lines = text.split('\n');
+      final lineCount = lines.length;
+      final padWidth = lineCount.toString().length;
+      final lineNumberWidth = padWidth * 9.0 + 24;
+
+      // 预估代码区域高度：行高(13*1.5=19.5) * 行数 + padding(24)
+      const lineHeight = 13.0 * 1.5;
+      const verticalPadding = 24.0; // 12 + 12
+      final estimatedHeight = (lineCount * lineHeight + verticalPadding).clamp(0.0, 400.0);
+
+      // 构建代码 TextSpan
+      final codeSpan = _tokens != null
+          ? HighlighterService.instance.tokensToSpan(
+              _tokens!,
+              isDark: isDark,
+              baseStyle: baseStyle,
+            )
+          : TextSpan(text: text, style: baseStyle);
 
       return Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -83,6 +136,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 头部工具栏
               Container(
                 height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -134,32 +188,71 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
                   ],
                 ),
               ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 400),
-                child: RawScrollbar(
-                  controller: _vController,
-                  thumbVisibility: true,
-                  thickness: 4,
-                  radius: const Radius.circular(2),
-                  padding: const EdgeInsets.only(right: 2, top: 2, bottom: 2),
-                  thumbColor: thumbColor,
-                  child: SingleChildScrollView(
-                    controller: _vController,
-                    scrollDirection: Axis.vertical,
-                    child: RawScrollbar(
-                      controller: _hController,
-                      thumbVisibility: true,
-                      thickness: 4,
-                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 4),
-                      radius: const Radius.circular(2),
-                      thumbColor: thumbColor,
-                      child: SingleChildScrollView(
-                        controller: _hController,
-                        scrollDirection: Axis.horizontal,
-                        child: codeContent,
+              // 代码区域 - 使用预估高度避免加载时跳动
+              SizedBox(
+                height: estimatedHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 固定的行号列
+                    Container(
+                      width: lineNumberWidth,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          right: BorderSide(color: borderColor),
+                        ),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.02)
+                            : Colors.black.withValues(alpha: 0.02),
+                      ),
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                        child: SingleChildScrollView(
+                          controller: _lineNumberVController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                            child: Text(
+                              List.generate(lineCount, (i) => (i + 1).toString().padLeft(padWidth)).join('\n'),
+                              style: baseStyle.copyWith(color: lineNumberColor),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    // 可滚动的代码内容
+                    Expanded(
+                      child: RawScrollbar(
+                        controller: _vController,
+                        thumbVisibility: true,
+                        thickness: 4,
+                        radius: const Radius.circular(2),
+                        padding: const EdgeInsets.only(right: 2, top: 2, bottom: 2),
+                        thumbColor: thumbColor,
+                        child: SingleChildScrollView(
+                          controller: _vController,
+                          scrollDirection: Axis.vertical,
+                          child: RawScrollbar(
+                            controller: _hController,
+                            thumbVisibility: true,
+                            thickness: 4,
+                            padding: const EdgeInsets.only(left: 2, right: 2, bottom: 4),
+                            radius: const Radius.circular(2),
+                            thumbColor: thumbColor,
+                            child: SingleChildScrollView(
+                              controller: _hController,
+                              scrollDirection: Axis.horizontal,
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: SelectableText.rich(codeSpan),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -236,12 +329,10 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
   void _triggerLoad() {
     if (!_shouldLoad) {
       LazyLoadScope.markLoaded(context, _cacheKey);
-      // 不停止动画，让 shimmer 在图片加载期间继续显示
       setState(() => _shouldLoad = true);
     }
   }
 
-  /// 构建 mermaid.ink URL
   String _buildMermaidInkUrl(String code, bool isDark, {int? width}) {
     final encoded = base64Url.encode(utf8.encode(code));
     final theme = isDark ? 'dark' : 'default';

@@ -32,8 +32,8 @@ import 'widgets/onboarding_gate.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化语法高亮服务（同步调用）
-  HighlighterService.instance.initialize();
+  // 初始化语法高亮服务（预热 Isolate Worker 和字体）
+  HighlighterService.instance.initialize(); // 不需要 await，后台初始化
 
   // 初始化 SharedPreferences
   final prefs = await SharedPreferences.getInstance();

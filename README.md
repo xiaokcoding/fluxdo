@@ -110,7 +110,7 @@ fluxdo/
 - **状态管理**：Riverpod
 - **网络请求**：Dio + Native Dio Adapter
 - **HTML 渲染**：flutter_widget_from_html
-- **代码高亮**：syntax_highlight
+- **代码高亮**：re_highlight + google_fonts (FiraCode)
 - **图片处理**：extended_image + cached_network_image
 - **本地存储**：shared_preferences + flutter_secure_storage
 - **网络代理**：Rust (DOH + ECH)
