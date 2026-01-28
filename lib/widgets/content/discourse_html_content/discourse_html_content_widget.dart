@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../models/topic.dart';
 import '../../../pages/user_profile_page.dart';
 import '../../../pages/webview_page.dart';
+import '../../../services/discourse_service.dart';
 import '../../../services/emoji_handler.dart';
 import '../../../utils/url_helper.dart';
 import 'discourse_widget_factory.dart';
@@ -37,6 +38,8 @@ class DiscourseHtmlContent extends StatefulWidget {
   final String? fullHtml;
   /// Post 对象（用于投票数据）
   final Post? post;
+  /// 话题 ID（用于链接点击追踪）
+  final int? topicId;
 
   const DiscourseHtmlContent({
     super.key,
@@ -50,6 +53,7 @@ class DiscourseHtmlContent extends StatefulWidget {
     this.mentionedUsers,
     this.fullHtml,
     this.post,
+    this.topicId,
   });
 
   @override
@@ -160,6 +164,28 @@ class _DiscourseHtmlContentState extends State<DiscourseHtmlContent> {
     return count.toString();
   }
 
+  /// 追踪链接点击
+  /// 仅当有 topicId 和 post 时才追踪
+  void _trackClick(String url) {
+    if (widget.topicId == null || widget.post == null) return;
+
+    // 不追踪以下类型的链接：
+    // 1. 用户链接 (/u/username) - 相当于 mention
+    if (RegExp(r'(?:linux\.do)?/u/[^/?#]+').hasMatch(url)) return;
+    // 2. 附件/上传链接
+    if (url.contains('/uploads/')) return;
+    // 3. Email 链接
+    if (url.startsWith('mailto:')) return;
+    // 4. 锚点链接
+    if (url.startsWith('#')) return;
+
+    DiscourseService().trackClick(
+      url: url,
+      postId: widget.post!.id,
+      topicId: widget.topicId!,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -221,6 +247,9 @@ class _DiscourseHtmlContentState extends State<DiscourseHtmlContent> {
         return {};
       },
       onTapUrl: (url) async {
+        // 追踪链接点击（fire-and-forget）
+        _trackClick(url);
+
         // 1. 识别用户链接 /u/username 或 linux.do/u/username
         final userMatch = RegExp(r'(?:linux\.do)?/u/([^/?#]+)').firstMatch(url);
         if (userMatch != null) {
@@ -306,6 +335,7 @@ class _DiscourseHtmlContentState extends State<DiscourseHtmlContent> {
         galleryImages: _galleryImages,
         onInternalLinkTap: widget.onInternalLinkTap,
         post: widget.post,
+        topicId: widget.topicId,
         linkCounts: widget.linkCounts,
         mentionedUsers: widget.mentionedUsers,
         enableSelectionArea: widget.enableSelectionArea,

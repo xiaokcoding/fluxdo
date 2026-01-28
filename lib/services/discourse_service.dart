@@ -1741,4 +1741,33 @@ class DiscourseService {
       rethrow;
     }
   }
+
+  /// 追踪链接点击
+  ///
+  /// 向服务器报告链接点击，用于统计分析。
+  /// 使用 fire-and-forget 模式，不等待响应。
+  ///
+  /// [url] 被点击的链接 URL
+  /// [postId] 包含该链接的帖子 ID
+  /// [topicId] 包含该链接的话题 ID
+  void trackClick({
+    required String url,
+    required int postId,
+    required int topicId,
+  }) {
+    // 使用 fire-and-forget 模式，不阻塞用户操作
+    _dio.post(
+      '/clicks/track',
+      data: {
+        'url': url,
+        'post_id': postId,
+        'topic_id': topicId,
+      },
+      options: Options(contentType: Headers.formUrlEncodedContentType),
+    ).catchError((e) {
+      // 静默处理错误，追踪失败不影响用户体验
+      debugPrint('[DiscourseService] trackClick failed: $e');
+      return Response(requestOptions: RequestOptions());
+    });
+  }
 }

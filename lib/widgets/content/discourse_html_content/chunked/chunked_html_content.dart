@@ -27,8 +27,11 @@ class ChunkedHtmlContent extends StatefulWidget {
   /// 被提及用户列表（含状态 emoji）
   final List<MentionedUser>? mentionedUsers;
 
-  /// Post 对象（用于投票数据）
+  /// Post 对象（用于投票数据和链接追踪）
   final Post? post;
+
+  /// 话题 ID（用于链接点击追踪）
+  final int? topicId;
 
   /// 预加载 HTML 分块（在获取帖子数据后调用）
   static void preload(String html) {
@@ -53,6 +56,7 @@ class ChunkedHtmlContent extends StatefulWidget {
     this.enableChunking,
     this.mentionedUsers,
     this.post,
+    this.topicId,
   });
 
   @override
@@ -147,6 +151,7 @@ class _ChunkedHtmlContentState extends State<ChunkedHtmlContent> {
         linkCounts: widget.linkCounts,
         mentionedUsers: widget.mentionedUsers,
         post: widget.post,
+        topicId: widget.topicId,
       );
     }
 
@@ -164,6 +169,7 @@ class _ChunkedHtmlContentState extends State<ChunkedHtmlContent> {
         mentionedUsers: widget.mentionedUsers,
         fullHtml: widget.html,
         post: widget.post,
+        topicId: widget.topicId,
       ));
       // 块之间添加间距（最后一个块除外）
       if (i < _chunks!.length - 1) {
@@ -191,6 +197,7 @@ class _ChunkWidget extends StatelessWidget {
   final List<MentionedUser>? mentionedUsers;
   final String fullHtml;
   final Post? post;
+  final int? topicId;
 
   const _ChunkWidget({
     super.key,
@@ -202,6 +209,7 @@ class _ChunkWidget extends StatelessWidget {
     this.mentionedUsers,
     required this.fullHtml,
     this.post,
+    this.topicId,
   });
 
   @override
@@ -218,6 +226,7 @@ class _ChunkWidget extends StatelessWidget {
         mentionedUsers: mentionedUsers,
         fullHtml: fullHtml,
         post: post,
+        topicId: topicId,
       ),
     );
   }

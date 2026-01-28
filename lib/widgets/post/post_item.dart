@@ -810,7 +810,7 @@ class _PostItemState extends ConsumerState<PostItem> {
             _buildReplyHistoryPreview(theme),
           
           const SizedBox(height: 12),
-          
+
                     // Content (HTML)
                     ChunkedHtmlContent(
                       html: post.cooked,
@@ -820,6 +820,7 @@ class _PostItemState extends ConsumerState<PostItem> {
                       linkCounts: post.linkCounts,
                       mentionedUsers: post.mentionedUsers,
                       post: post,
+                      topicId: widget.topicId,
                       onInternalLinkTap: (topicId, topicSlug) {
                         Navigator.of(context).push(
                           MaterialPageRoute(
