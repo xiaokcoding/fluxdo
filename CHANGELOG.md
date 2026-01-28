@@ -1,3 +1,11 @@
+## v0.1.4
+
+- 🐛 修复话题投票时会直接刷新整个详情的问题
+
+- 🐛 修复回到顶部概率触发刷新
+
+- ✨ 支持帖子编辑功能和编辑时支持提及（@触发）
+
 ## v0.1.3
 
 - feat: add PreloadedDataService for efficient initial data loading and configure Android build with ABI filtering.
