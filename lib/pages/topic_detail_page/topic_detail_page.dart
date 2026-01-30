@@ -896,6 +896,19 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       return PostListSkeleton(withHeader: showHeaderSkeleton);
     }
 
+    // 跳转中：等待包含目标帖子的新数据 - 显示骨架屏
+    final jumpTarget = _scrollController.jumpTargetPostNumber;
+    if (jumpTarget != null && detail != null) {
+      final posts = detail.postStream.posts;
+      // 检查目标帖子是否在当前加载的范围内
+      final hasTarget = posts.isNotEmpty &&
+          posts.first.postNumber <= jumpTarget &&
+          posts.last.postNumber >= jumpTarget;
+      if (!hasTarget) {
+        return const PostListSkeleton(withHeader: false);
+      }
+    }
+
     Widget content = const SizedBox();
 
     if (detailAsync.hasError && detail == null) {
