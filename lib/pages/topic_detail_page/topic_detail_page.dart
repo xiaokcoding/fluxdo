@@ -318,6 +318,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
                 onPressed: () => _scrollToPost(newPost.postNumber),
               ),
               behavior: SnackBarBehavior.floating,
+              persist: false,
               duration: const Duration(seconds: 4),
             ),
           );
