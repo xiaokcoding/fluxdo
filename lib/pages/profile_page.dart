@@ -15,6 +15,7 @@ import 'trust_level_requirements_page.dart';
 import 'about_page.dart';
 import 'network_settings_page.dart';
 import '../widgets/common/loading_spinner.dart';
+import '../widgets/common/loading_dialog.dart';
 import '../widgets/common/notification_icon_button.dart';
 import '../widgets/common/flair_badge.dart';
 import '../providers/app_state_refresher.dart';
@@ -54,7 +55,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       MaterialPageRoute(builder: (_) => const WebViewLoginPage()),
     );
     if (result == true && mounted) {
+      LoadingDialog.show(context, message: '加载数据...');
+
+      // 刷新所有状态
       AppStateRefresher.refreshAll(ref);
+
+      // 等待关键数据加载完成
+      try {
+        await Future.wait([
+          ref.read(currentUserProvider.future),
+          ref.read(userSummaryProvider.future),
+        ]).timeout(const Duration(seconds: 10));
+      } catch (_) {
+        // 超时或错误时继续
+      }
+
+      if (mounted) {
+        LoadingDialog.hide(context);
+      }
     }
   }
   
@@ -72,9 +90,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
 
     if (confirmed == true && mounted) {
+      LoadingDialog.show(context, message: '正在退出...');
+
       await ref.read(discourseServiceProvider).logout(callApi: true);
       if (mounted) {
         await AppStateRefresher.resetForLogout(ref);
+      }
+
+      if (mounted) {
+        LoadingDialog.hide(context);
       }
     }
   }

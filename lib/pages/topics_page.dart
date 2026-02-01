@@ -18,6 +18,7 @@ import '../widgets/topic/topic_list_skeleton.dart';
 import '../providers/app_state_refresher.dart';
 import '../utils/responsive.dart';
 import '../widgets/layout/master_detail_layout.dart';
+import '../widgets/common/loading_dialog.dart';
 
 class ScrollToTopNotifier extends StateNotifier<int> {
   ScrollToTopNotifier() : super(0);
@@ -85,7 +86,23 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
       MaterialPageRoute(builder: (_) => const WebViewLoginPage()),
     );
     if (result == true && mounted) {
+      LoadingDialog.show(context, message: '加载数据...');
+
       AppStateRefresher.refreshAll(ref);
+
+      // 等待用户数据和话题列表加载
+      try {
+        await Future.wait([
+          ref.read(currentUserProvider.future),
+          ref.read(topicListProvider(TopicListFilter.latest).future),
+        ]).timeout(const Duration(seconds: 10));
+      } catch (_) {
+        // 超时或错误时继续
+      }
+
+      if (mounted) {
+        LoadingDialog.hide(context);
+      }
     }
   }
 
