@@ -32,6 +32,9 @@ final scrollToTopProvider = StateNotifierProvider<ScrollToTopNotifier, int>((ref
   return ScrollToTopNotifier();
 });
 
+/// 底栏可见性状态（滚动时自动隐藏）
+final bottomNavVisibleProvider = StateProvider<bool>((ref) => true);
+
 /// 帖子列表页面 - 支持多 Tab (最新、新、未读、排行榜、热门)
 class TopicsPage extends ConsumerStatefulWidget {
   const TopicsPage({super.key});
@@ -78,8 +81,10 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   void _onScrollDirectionChanged(ScrollDirection direction) {
     if (direction == ScrollDirection.forward && !_showSearchBar) {
       setState(() => _showSearchBar = true);
+      ref.read(bottomNavVisibleProvider.notifier).state = true;
     } else if (direction == ScrollDirection.reverse && _showSearchBar) {
       setState(() => _showSearchBar = false);
+      ref.read(bottomNavVisibleProvider.notifier).state = false;
     }
   }
 

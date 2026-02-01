@@ -220,6 +220,7 @@ class _MainPageState extends ConsumerState<MainPage> {
       // 双击当前 tab，滚动到顶部
       if (index == 0) {
         ref.read(scrollToTopProvider.notifier).trigger();
+        ref.read(bottomNavVisibleProvider.notifier).state = true;
       }
       _lastTappedIndex = null;
       _lastTapTime = null;
@@ -227,6 +228,8 @@ class _MainPageState extends ConsumerState<MainPage> {
       _lastTappedIndex = index;
       _lastTapTime = now;
       if (index != _currentIndex) {
+        // 切换 tab 时重置底栏可见性
+        ref.read(bottomNavVisibleProvider.notifier).state = true;
         setState(() => _currentIndex = index);
       }
     }
