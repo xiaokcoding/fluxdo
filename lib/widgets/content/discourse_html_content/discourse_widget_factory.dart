@@ -215,6 +215,8 @@ class DiscourseWidgetFactory extends WidgetFactory {
                 heroTags: heroTags,
                 initialIndex: galleryIndex,
                 enableShare: true,
+                thumbnailUrl: resolvedUrl,
+                thumbnailUrls: galleryImages,
               );
             },
           );

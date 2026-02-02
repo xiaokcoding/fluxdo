@@ -981,7 +981,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     state = AsyncValue.data(currentDetail.copyWith(
       title: title ?? currentDetail.title,
       categoryId: categoryId ?? currentDetail.categoryId,
-      tags: tags ?? currentDetail.tags,
+      tags: tags != null ? tags.map((name) => Tag(name: name)).toList() : currentDetail.tags,
       postStream: updatedPostStream ?? currentDetail.postStream,
     ));
   }

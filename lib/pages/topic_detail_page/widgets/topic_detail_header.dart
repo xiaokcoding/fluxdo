@@ -133,7 +133,7 @@ class TopicDetailHeader extends ConsumerWidget {
                       ),
                     ),
                     child: Text(
-                      tag,
+                      tag.name,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w500,

@@ -93,7 +93,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
     _titleController.text = widget.topicDetail.title;
     _originalTitle = widget.topicDetail.title;
     _originalCategoryId = widget.topicDetail.categoryId;
-    _originalTags = widget.topicDetail.tags ?? [];
+    _originalTags = widget.topicDetail.tags?.map((tag) => tag.name).toList() ?? [];
     _selectedTags = List.from(_originalTags!);
 
     // 初始化首贴

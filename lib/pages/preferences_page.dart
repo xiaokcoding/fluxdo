@@ -17,6 +17,52 @@ class PreferencesPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
+          _buildSectionHeader(theme, '基础'),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            color: theme.colorScheme.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            ),
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('长按预览'),
+                  subtitle: const Text('长按话题卡片快速预览内容'),
+                  secondary: Icon(
+                    Icons.touch_app_rounded,
+                    color: preferences.longPressPreview
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  value: preferences.longPressPreview,
+                  onChanged: (value) {
+                    ref.read(preferencesProvider.notifier).setLongPressPreview(value);
+                  },
+                ),
+                Divider(height: 1, indent: 56, color: theme.colorScheme.outlineVariant.withOpacity(0.3)),
+                SwitchListTile(
+                  title: const Text('匿名分享'),
+                  subtitle: const Text('分享链接时不附带个人用户标识'),
+                  secondary: Icon(
+                    Icons.visibility_off_rounded,
+                    color: preferences.anonymousShare
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  value: preferences.anonymousShare,
+                  onChanged: (value) {
+                    ref.read(preferencesProvider.notifier).setAnonymousShare(value);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
           _buildSectionHeader(theme, '编辑器'),
           const SizedBox(height: 12),
           Card(
@@ -40,33 +86,6 @@ class PreferencesPage extends ConsumerWidget {
               value: preferences.autoPanguSpacing,
               onChanged: (value) {
                 ref.read(preferencesProvider.notifier).setAutoPanguSpacing(value);
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(theme, '分享'),
-          const SizedBox(height: 12),
-          Card(
-            elevation: 0,
-            color: theme.colorScheme.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
-            ),
-            margin: EdgeInsets.zero,
-            clipBehavior: Clip.antiAlias,
-            child: SwitchListTile(
-              title: const Text('匿名分享'),
-              subtitle: const Text('分享链接时不附带个人用户标识'),
-              secondary: Icon(
-                Icons.visibility_off_rounded,
-                color: preferences.anonymousShare
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-              value: preferences.anonymousShare,
-              onChanged: (value) {
-                ref.read(preferencesProvider.notifier).setAnonymousShare(value);
               },
             ),
           ),

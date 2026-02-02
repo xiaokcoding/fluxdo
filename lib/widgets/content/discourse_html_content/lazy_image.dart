@@ -36,22 +36,11 @@ class LazyImage extends StatefulWidget {
   State<LazyImage> createState() => _LazyImageState();
 }
 
-class _LazyImageState extends State<LazyImage> with SingleTickerProviderStateMixin {
+class _LazyImageState extends State<LazyImage> {
   bool _shouldLoad = false;
   bool _initialized = false;
-  AnimationController? _shimmerController;
 
   String get _cacheKey => widget.cacheKey ?? widget.heroTag;
-
-  @override
-  void initState() {
-    super.initState();
-    // 先创建动画控制器，后面根据缓存状态决定是否使用
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-  }
 
   @override
   void didChangeDependencies() {
@@ -61,21 +50,13 @@ class _LazyImageState extends State<LazyImage> with SingleTickerProviderStateMix
       // 检查作用域缓存
       if (LazyLoadScope.isLoaded(context, _cacheKey)) {
         _shouldLoad = true;
-        _shimmerController?.stop();
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _shimmerController?.dispose();
-    super.dispose();
   }
 
   void _triggerLoad() {
     if (!_shouldLoad) {
       LazyLoadScope.markLoaded(context, _cacheKey);
-      _shimmerController?.stop();
       setState(() => _shouldLoad = true);
     }
   }
@@ -89,8 +70,8 @@ class _LazyImageState extends State<LazyImage> with SingleTickerProviderStateMix
       return _buildImageWidget(theme);
     }
 
-    // 骨架屏占位符
-    Widget placeholder = _buildShimmerPlaceholder(theme);
+    // 静态占位符（无动画，避免多个 AnimationController 开销）
+    Widget placeholder = _buildStaticPlaceholder(theme);
 
     // 使用 VisibilityDetector 检测可见性
     return VisibilityDetector(
@@ -104,44 +85,25 @@ class _LazyImageState extends State<LazyImage> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _buildShimmerPlaceholder(ThemeData theme) {
-    final controller = _shimmerController;
-    if (controller == null) {
-      return const SizedBox.shrink();
-    }
-
-    Widget shimmer = AnimatedBuilder(
-      animation: controller,
-      builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * controller.value, 0),
-              end: Alignment(-0.5 + 2.0 * controller.value, 0),
-              colors: [
-                theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
-                theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-          ),
-        );
-      },
+  Widget _buildStaticPlaceholder(ThemeData theme) {
+    Widget placeholder = Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha(60),
+        borderRadius: BorderRadius.circular(8),
+      ),
     );
 
     if (widget.width != null && widget.height != null && widget.height! > 0) {
       return AspectRatio(
         aspectRatio: widget.width! / widget.height!,
-        child: shimmer,
+        child: placeholder,
       );
     }
 
     return SizedBox(
       width: widget.width,
       height: widget.height ?? 200,
-      child: shimmer,
+      child: placeholder,
     );
   }
 

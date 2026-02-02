@@ -15,7 +15,9 @@ import 'search_page.dart';
 import '../widgets/common/notification_icon_button.dart';
 import '../widgets/topic/topic_filter_sheet.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
+import '../widgets/topic/topic_preview_dialog.dart';
 import '../providers/app_state_refresher.dart';
+import '../providers/preferences_provider.dart';
 import '../utils/responsive.dart';
 import '../widgets/layout/master_detail_layout.dart';
 import '../widgets/common/loading_dialog.dart';
@@ -29,6 +31,9 @@ class ScrollToTopNotifier extends StateNotifier<int> {
 final scrollToTopProvider = StateNotifierProvider<ScrollToTopNotifier, int>((ref) {
   return ScrollToTopNotifier();
 });
+
+/// 底栏可见性状态（滚动时自动隐藏）
+final bottomNavVisibleProvider = StateProvider<bool>((ref) => true);
 
 /// 帖子列表页面 - 支持多 Tab (最新、新、未读、排行榜、热门)
 class TopicsPage extends ConsumerStatefulWidget {
@@ -76,8 +81,10 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   void _onScrollDirectionChanged(ScrollDirection direction) {
     if (direction == ScrollDirection.forward && !_showSearchBar) {
       setState(() => _showSearchBar = true);
+      ref.read(bottomNavVisibleProvider.notifier).state = true;
     } else if (direction == ScrollDirection.reverse && _showSearchBar) {
       setState(() => _showSearchBar = false);
+      ref.read(bottomNavVisibleProvider.notifier).state = false;
     }
   }
 
@@ -478,16 +485,31 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
                 } else {
                   final topic = topics[topicIndex];
                   final isSelected = topic.id == selectedTopicId;
+                  final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
                   if (topic.pinned) {
                     child = CompactTopicCard(
                       topic: topic,
                       onTap: () => _openTopic(topic),
+                      onLongPress: enableLongPress
+                          ? () => TopicPreviewDialog.show(
+                                context,
+                                topic: topic,
+                                onOpen: () => _openTopic(topic),
+                              )
+                          : null,
                       isSelected: isSelected,
                     );
                   } else {
                     child = TopicCard(
                       topic: topic,
                       onTap: () => _openTopic(topic),
+                      onLongPress: enableLongPress
+                          ? () => TopicPreviewDialog.show(
+                                context,
+                                topic: topic,
+                                onOpen: () => _openTopic(topic),
+                              )
+                          : null,
                       isSelected: isSelected,
                     );
                   }

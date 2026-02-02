@@ -18,6 +18,10 @@ class ImageViewerPage extends StatefulWidget {
   final List<String>? heroTags;
   final int initialIndex;
   final bool enableShare;
+  /// 缩略图 URL，加载原图时先显示缩略图避免闪烁
+  final String? thumbnailUrl;
+  /// 画廊中每张图片的缩略图 URL 列表
+  final List<String>? thumbnailUrls;
 
   const ImageViewerPage({
     super.key,
@@ -28,6 +32,8 @@ class ImageViewerPage extends StatefulWidget {
     this.heroTags,
     this.initialIndex = 0,
     this.enableShare = false,
+    this.thumbnailUrl,
+    this.thumbnailUrls,
   }) : assert(imageUrl != null || imageBytes != null);
 
   /// 使用透明路由打开图片查看器
@@ -39,6 +45,8 @@ class ImageViewerPage extends StatefulWidget {
     List<String>? heroTags,
     int initialIndex = 0,
     bool enableShare = false,
+    String? thumbnailUrl,
+    List<String>? thumbnailUrls,
   }) {
     Navigator.push(
       context,
@@ -53,6 +61,8 @@ class ImageViewerPage extends StatefulWidget {
             heroTags: heroTags,
             initialIndex: initialIndex,
             enableShare: enableShare,
+            thumbnailUrl: thumbnailUrl,
+            thumbnailUrls: thumbnailUrls,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -276,7 +286,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
       final imageUrl = _currentImageUrl;
       // 获取缓存文件（如果不存在会自动下载）
       final file = await _cacheManager.getSingleFile(imageUrl);
-      
+
       // 分享文件
       final xFile = XFile(file.path, mimeType: 'image/${_getExtensionFromUrl(imageUrl)}');
       await Share.shareXFiles([xFile], text: imageUrl);
@@ -443,6 +453,15 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                     handleDoubleTapZoom(state, imageUrl: widget.imageUrl);
                   },
                   loadStateChanged: (state) {
+                    // 加载中时显示缩略图（如果有）
+                    if (state.extendedImageLoadState == LoadState.loading) {
+                      if (widget.thumbnailUrl != null && widget.thumbnailUrl != widget.imageUrl) {
+                        return Image(
+                          image: discourseImageProvider(widget.thumbnailUrl!),
+                          fit: BoxFit.contain,
+                        );
+                      }
+                    }
                     // 缓存图片尺寸用于智能缩放
                     if (state.extendedImageLoadState == LoadState.completed) {
                       final imageInfo = state.extendedImageInfo;
@@ -480,6 +499,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                   },
                   itemBuilder: (context, index) {
                     final url = images[index];
+                    final thumbUrl = _getThumbnailForIndex(index);
 
                     // 用 ValueListenableBuilder 监听页码变化
                     // 确保 PageView 缓存的页面在切换时也会重建，移除旧 Hero
@@ -520,7 +540,14 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                             handleDoubleTapZoom(state, imageUrl: url);
                           },
                           loadStateChanged: (state) {
+                            // 加载中时显示缩略图（如果有）
                             if (state.extendedImageLoadState == LoadState.loading) {
+                              if (thumbUrl != null && thumbUrl != url) {
+                                return Image(
+                                  image: discourseImageProvider(thumbUrl),
+                                  fit: BoxFit.contain,
+                                );
+                              }
                               return const Center(child: LoadingSpinner());
                             }
                             // 缓存图片尺寸用于智能缩放
@@ -568,7 +595,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                         ),
                       ),
                     ),
-                    
+
                     // 顶部指示器 (仅画廊模式)
                     if (isGallery)
                       Positioned(
@@ -661,5 +688,15 @@ class _ImageViewerPageState extends State<ImageViewerPage>
         ),
       ),
     ));
+  }
+
+  /// 获取指定索引的缩略图 URL
+  String? _getThumbnailForIndex(int index) {
+    if (widget.thumbnailUrls != null && index < widget.thumbnailUrls!.length) {
+      return widget.thumbnailUrls![index];
+    } else if (index == widget.initialIndex && widget.thumbnailUrl != null) {
+      return widget.thumbnailUrl;
+    }
+    return null;
   }
 }

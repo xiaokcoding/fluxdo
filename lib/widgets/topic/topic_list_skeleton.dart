@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../common/skeleton.dart';
 
 /// 话题列表骨架屏
 class TopicListSkeleton extends StatelessWidget {
@@ -6,40 +7,19 @@ class TopicListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: 8,
-      itemBuilder: (context, index) => const _TopicCardSkeleton(),
+    return Skeleton(
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: 8,
+        itemBuilder: (context, index) => const _TopicCardSkeleton(),
+      ),
     );
   }
 }
 
 /// 单个话题卡片的骨架屏
-class _TopicCardSkeleton extends StatefulWidget {
+class _TopicCardSkeleton extends StatelessWidget {
   const _TopicCardSkeleton();
-
-  @override
-  State<_TopicCardSkeleton> createState() => _TopicCardSkeletonState();
-}
-
-class _TopicCardSkeletonState extends State<_TopicCardSkeleton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _shimmerController;
-
-  @override
-  void initState() {
-    super.initState();
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _shimmerController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,19 +48,9 @@ class _TopicCardSkeletonState extends State<_TopicCardSkeleton>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _ShimmerBox(
-                        controller: _shimmerController,
-                        width: double.infinity,
-                        height: 20,
-                        theme: theme,
-                      ),
+                      SkeletonBox(width: double.infinity, height: 20),
                       const SizedBox(height: 6),
-                      _ShimmerBox(
-                        controller: _shimmerController,
-                        width: 200,
-                        height: 20,
-                        theme: theme,
-                      ),
+                      SkeletonBox(width: 200, height: 20),
                     ],
                   ),
                 ),
@@ -90,109 +60,29 @@ class _TopicCardSkeletonState extends State<_TopicCardSkeleton>
             // 分类和标签行
             Row(
               children: [
-                _ShimmerBox(
-                  controller: _shimmerController,
-                  width: 24,
-                  height: 24,
-                  borderRadius: 6,
-                  theme: theme,
-                ),
+                SkeletonBox(width: 24, height: 24, borderRadius: 6),
                 const SizedBox(width: 8),
-                _ShimmerBox(
-                  controller: _shimmerController,
-                  width: 80,
-                  height: 16,
-                  theme: theme,
-                ),
+                SkeletonBox(width: 80, height: 16),
                 const SizedBox(width: 12),
-                _ShimmerBox(
-                  controller: _shimmerController,
-                  width: 60,
-                  height: 16,
-                  theme: theme,
-                ),
+                SkeletonBox(width: 60, height: 16),
               ],
             ),
             const SizedBox(height: 12),
             // 底部信息行
             Row(
               children: [
-                _ShimmerBox(
-                  controller: _shimmerController,
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  theme: theme,
-                ),
+                SkeletonCircle(size: 24),
                 const SizedBox(width: 8),
-                _ShimmerBox(
-                  controller: _shimmerController,
-                  width: 60,
-                  height: 14,
-                  theme: theme,
-                ),
+                SkeletonBox(width: 60, height: 14),
                 const Spacer(),
-                _ShimmerBox(
-                  controller: _shimmerController,
-                  width: 40,
-                  height: 14,
-                  theme: theme,
-                ),
+                SkeletonBox(width: 40, height: 14),
                 const SizedBox(width: 12),
-                _ShimmerBox(
-                  controller: _shimmerController,
-                  width: 40,
-                  height: 14,
-                  theme: theme,
-                ),
+                SkeletonBox(width: 40, height: 14),
               ],
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-/// 带 shimmer 动画的占位框（与 LazyImage 风格一致）
-class _ShimmerBox extends StatelessWidget {
-  final AnimationController controller;
-  final double width;
-  final double height;
-  final double borderRadius;
-  final ThemeData theme;
-
-  const _ShimmerBox({
-    required this.controller,
-    required this.width,
-    required this.height,
-    this.borderRadius = 4,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, child) {
-        return Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(borderRadius),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * controller.value, 0),
-              end: Alignment(-0.5 + 2.0 * controller.value, 0),
-              colors: [
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-          ),
-        );
-      },
     );
   }
 }

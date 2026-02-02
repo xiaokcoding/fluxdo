@@ -15,12 +15,14 @@ import '../common/emoji_text.dart';
 class TopicCard extends ConsumerWidget {
   final Topic topic;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final bool isSelected;
 
   const TopicCard({
     super.key,
     required this.topic,
     this.onTap,
+    this.onLongPress,
     this.isSelected = false,
   });
   
@@ -73,6 +75,7 @@ class TopicCard extends ConsumerWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Opacity(
           opacity: isFullyRead ? 0.5 : 1.0,
           child: Padding(
@@ -251,7 +254,7 @@ class TopicCard extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            '# $tag',
+                            '# ${tag.name}',
                             style: theme.textTheme.labelSmall?.copyWith(
                               fontSize: 10,
                               color: theme.colorScheme.onSurfaceVariant,
@@ -404,12 +407,14 @@ class TopicCard extends ConsumerWidget {
 class CompactTopicCard extends ConsumerWidget {
   final Topic topic;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final bool isSelected;
 
   const CompactTopicCard({
     super.key,
     required this.topic,
     this.onTap,
+    this.onLongPress,
     this.isSelected = false,
   });
 
@@ -451,6 +456,7 @@ class CompactTopicCard extends ConsumerWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(

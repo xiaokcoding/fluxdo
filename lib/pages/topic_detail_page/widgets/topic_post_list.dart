@@ -91,13 +91,11 @@ class TopicPostList extends StatelessWidget {
         cacheExtent: 500,
         physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
         slivers: [
-          // 向上加载的 loading 指示器 - 显示骨架屏
+          // 向上加载的 loading 指示器 - 使用共享动画的骨架屏
           if (hasMoreBefore && isLoadingPrevious)
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _wrapContent(context, const PostItemSkeleton()),
-                childCount: loadMoreSkeletonCount,
-              ),
+            LoadingSkeletonSliver(
+              itemCount: loadMoreSkeletonCount,
+              wrapContent: _wrapContent,
             ),
           // 向上的内容（反向）
           SliverList(
@@ -174,22 +172,12 @@ class TopicPostList extends StatelessWidget {
                 final adjustedIndex = centerPostIndex + index - headerOffset;
 
                 if (adjustedIndex >= posts.length) {
-                  // 底部 Loading（如果还有更多数据要加载）- 显示骨架屏
-                  if (hasMoreAfter && isLoadingMore) {
-                    final skeletonIndex = adjustedIndex - posts.length;
-                    if (skeletonIndex < loadMoreSkeletonCount) {
-                      return _wrapContent(context, const PostItemSkeleton());
-                    }
-                    return null;
-                  }
-
                   // 只有在没有更多数据时，才显示正在输入
                   if (typingUsers.isNotEmpty && !hasMoreAfter) {
                     if (adjustedIndex == posts.length) {
                       return _wrapContent(context, TypingAvatars(users: typingUsers));
                     }
                   }
-
                   return null;
                 }
 
@@ -244,10 +232,15 @@ class TopicPostList extends StatelessWidget {
               childCount: posts.length -
                   centerPostIndex +
                   ((hasFirstPost && centerPostIndex == 0) ? 1 : 0) +
-                  (hasMoreAfter && isLoadingMore ? loadMoreSkeletonCount : 0) +
                   (typingUsers.isNotEmpty && !hasMoreAfter ? 1 : 0),
             ),
           ),
+          // 底部加载骨架屏 - 使用共享动画
+          if (hasMoreAfter && isLoadingMore)
+            LoadingSkeletonSliver(
+              itemCount: loadMoreSkeletonCount,
+              wrapContent: _wrapContent,
+            ),
           SliverPadding(
             padding: EdgeInsets.only(bottom: 80 + MediaQuery.of(context).padding.bottom),
           ),

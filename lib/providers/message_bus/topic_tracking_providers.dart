@@ -256,7 +256,13 @@ class LatestChannelNotifier extends Notifier<TopicListIncomingState> {
       if (filter.tags.isNotEmpty) {
         final payload = data['payload'] as Map<String, dynamic>?;
         final topicTags = (payload?['tags'] ?? data['tags']) as List?;
-        final topicTagStrings = topicTags?.map((t) => t.toString()).toList() ?? [];
+        // 兼容新旧格式：如果是对象则取 name 字段，如果是字符串则直接用
+        final topicTagStrings = topicTags?.map((t) {
+          if (t is Map<String, dynamic>) {
+            return t['name'] as String? ?? '';
+          }
+          return t.toString();
+        }).toList() ?? [];
 
         // 检查话题标签是否包含筛选中的任意一个标签
         final hasMatchingTag = filter.tags.any((t) => topicTagStrings.contains(t));

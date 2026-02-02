@@ -1,6 +1,49 @@
 /// 帖子数据模型
 import '../utils/time_utils.dart';
 
+/// 标签模型
+class Tag {
+  final int? id;
+  final String name;
+  final String? slug;
+
+  const Tag({
+    this.id,
+    required this.name,
+    this.slug,
+  });
+
+  factory Tag.fromJson(dynamic json) {
+    // 兼容新旧格式
+    if (json is String) {
+      // 旧格式：直接是字符串
+      return Tag(name: json);
+    } else if (json is Map<String, dynamic>) {
+      // 新格式：对象格式
+      return Tag(
+        id: json['id'] as int?,
+        name: json['name'] as String? ?? '',
+        slug: json['slug'] as String?,
+      );
+    } else {
+      // 降级处理
+      return Tag(name: json.toString());
+    }
+  }
+
+  @override
+  String toString() => name;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Tag && other.name == name;
+  }
+
+  @override
+  int get hashCode => name.hashCode;
+}
+
 /// 话题订阅级别
 enum TopicNotificationLevel {
   muted(0, '静音', '不接收任何通知'),
@@ -140,7 +183,7 @@ class Topic {
   final bool visible;
   final bool closed;
   final bool archived;
-  final List<String> tags;
+  final List<Tag> tags;
   final List<TopicPoster> posters;
 
   // 已读状态相关
@@ -171,7 +214,7 @@ class Topic {
     this.visible = true,
     this.closed = false,
     this.archived = false,
-    this.tags = const <String>[],
+    this.tags = const <Tag>[],
     this.posters = const [],
     this.unseen = false,
     this.unread = 0,
@@ -200,7 +243,7 @@ class Topic {
       visible: json['visible'] as bool? ?? true,
       closed: json['closed'] as bool? ?? false,
       archived: json['archived'] as bool? ?? false,
-      tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const <String>[],
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => Tag.fromJson(e)).toList() ?? const <Tag>[],
       posters: (json['posters'] as List<dynamic>?)
           ?.map((e) => TopicPoster.fromJson(e as Map<String, dynamic>, userMap ?? {}))
           .toList() ?? const [],
@@ -516,7 +559,7 @@ class TopicDetail {
   final int categoryId;
   final bool closed;
   final bool archived;
-  final List<String>? tags;
+  final List<Tag>? tags;
   final int views;
   final int likeCount;
   final DateTime? createdAt;
@@ -615,7 +658,7 @@ class TopicDetail {
       categoryId: json['category_id'] as int? ?? 0,
       closed: json['closed'] as bool? ?? false,
       archived: json['archived'] as bool? ?? false,
-      tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList(),
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => Tag.fromJson(e)).toList(),
       views: json['views'] as int? ?? 0,
       likeCount: json['like_count'] as int? ?? 0,
       createdAt: TimeUtils.parseUtcTime(json['created_at'] as String?),
@@ -650,7 +693,7 @@ class TopicDetail {
     int? categoryId,
     bool? closed,
     bool? archived,
-    List<String>? tags,
+    List<Tag>? tags,
     int? views,
     int? likeCount,
     DateTime? createdAt,

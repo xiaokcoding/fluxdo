@@ -109,6 +109,11 @@ class TopicScrollController extends ChangeNotifier {
 
   /// 处理滚动通知，精确检测用户主动滚动
   bool handleScrollNotification(ScrollNotification notification) {
+    // 只处理主列表的滚动（depth == 0），忽略嵌套滚动视图（如代码块）
+    if (notification.depth != 0) {
+      return false;
+    }
+
     // 使用 ScrollUpdateNotification 检测实际滚动量
     // 只处理用户拖动产生的滚动（dragDetails 不为 null）
     if (notification is ScrollUpdateNotification && notification.dragDetails != null) {

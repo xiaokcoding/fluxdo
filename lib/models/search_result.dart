@@ -1,6 +1,7 @@
 /// 搜索结果数据模型
 import '../constants.dart';
 import '../utils/time_utils.dart';
+import 'topic.dart';
 
 /// 搜索结果响应
 class SearchResult {
@@ -108,7 +109,7 @@ class SearchTopic {
   final String title;
   final String slug;
   final int? categoryId;
-  final List<String> tags;
+  final List<Tag> tags;
   final int postsCount;
   final int views;
   final bool closed;
@@ -133,7 +134,7 @@ class SearchTopic {
       title: json['title'] as String? ?? '',
       slug: json['slug'] as String? ?? '',
       categoryId: json['category_id'] as int?,
-      tags: tagsJson.map((t) => t.toString()).toList(),
+      tags: tagsJson.map((t) => Tag.fromJson(t)).toList(),
       postsCount: json['posts_count'] as int? ?? 0,
       views: json['views'] as int? ?? 0,
       closed: json['closed'] as bool? ?? false,
