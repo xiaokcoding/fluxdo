@@ -19,6 +19,7 @@ import '../common/flair_badge.dart';
 import 'small_action_item.dart';
 import 'moderator_action_item.dart';
 import 'whisper_indicator.dart';
+import 'post_links.dart';
 
 /// 获取 emoji 图片 URL
 String _getEmojiUrl(String emojiName) {
@@ -1099,6 +1100,9 @@ class _PostItemState extends ConsumerState<PostItem> {
                         );
                       },
                     ),
+
+                    // 相关链接（其他帖子引用了此帖子的入站链接）
+                    PostLinks(linkCounts: post.linkCounts),
 
                     // 主贴显示解决方案跳转提示
                     if (post.postNumber == 1 && widget.topicHasAcceptedAnswer && widget.acceptedAnswerPostNumber != null)
