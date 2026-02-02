@@ -482,7 +482,13 @@ class DiscourseService {
       final topTags = data['top_tags'] as List?;
       if (topTags == null) return [];
 
-      return topTags.map((t) => t.toString()).toList();
+      // 兼容新旧格式：如果是对象则取 name 字段，如果是字符串则直接用
+      return topTags.map((t) {
+        if (t is Map<String, dynamic>) {
+          return t['name'] as String? ?? '';
+        }
+        return t.toString();
+      }).where((name) => name.isNotEmpty).toList();
     } catch (e) {
       print('[DiscourseService] getTags failed: $e');
       return [];
