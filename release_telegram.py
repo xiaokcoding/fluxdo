@@ -41,18 +41,20 @@ def main() -> int:
         print("No message content, skipping.")
         return 0
 
-    artifacts_dir = Path("artifacts")
-    apk_files = []
+    artifacts_dir = Path("dist")
+    package_files = []
     if artifacts_dir.exists():
-        apk_files = sorted(p for p in artifacts_dir.iterdir() if p.is_file() and p.suffix == ".apk")
+        package_files = sorted(
+            p for p in artifacts_dir.iterdir() if p.is_file() and p.suffix in {".apk", ".ipa"}
+        )
 
-    if not apk_files:
-        print("No APK files found in artifacts/, skipping.")
+    if not package_files:
+        print("No APK/IPA files found in dist/, skipping.")
         return 0
 
     media = []
     files = {}
-    for idx, file_path in enumerate(apk_files, start=1):
+    for idx, file_path in enumerate(package_files, start=1):
         key = f"file{idx}"
         media.append(
             {
