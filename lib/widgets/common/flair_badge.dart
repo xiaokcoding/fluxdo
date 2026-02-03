@@ -4,23 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../constants.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../utils/svg_utils.dart';
-
-/// FontAwesome 图标映射
-/// 将 FA 图标名称映射到 Flutter 的 IconData
-class _FontAwesomeIconMapper {
-  static final Map<String, IconData> _iconMap = {
-    'battery-quarter': FontAwesomeIcons.batteryQuarter,
-  };
-
-  static IconData? getIcon(String name) {
-    // 移除 fa- 前缀
-    String cleanName = name;
-    if (cleanName.startsWith('fa-')) {
-      cleanName = cleanName.substring(3);
-    }
-    return _iconMap[cleanName];
-  }
-}
+import '../../utils/font_awesome_helper.dart';
 
 /// Flair 徽章组件
 /// 用于在头像右下角显示用户的群组/身份标识
@@ -121,7 +105,7 @@ class FlairBadge extends StatelessWidget {
     // 如果是图标名称（不是 URL）
     final iconName = _faIconName;
     if (iconName != null) {
-      final iconData = _FontAwesomeIconMapper.getIcon(iconName);
+      final iconData = FontAwesomeHelper.getIcon(iconName);
 
       // 如果没有匹配到图标，不显示
       if (iconData == null) return const SizedBox.shrink();

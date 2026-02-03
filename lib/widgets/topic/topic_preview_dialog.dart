@@ -11,6 +11,7 @@ import '../../services/discourse_cache_manager.dart';
 import '../../utils/time_utils.dart';
 import '../../utils/number_utils.dart';
 import '../common/emoji_text.dart';
+import '../common/topic_badges.dart';
 
 /// 话题预览弹窗 - 长按卡片时显示
 class TopicPreviewDialog extends ConsumerWidget {
@@ -279,17 +280,16 @@ class TopicPreviewDialog extends ConsumerWidget {
 
         // 标签
         ...topic.tags.map(
-          (tag) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
-              borderRadius: BorderRadius.circular(8),
+          (tag) => TagBadge(
+            name: tag.name,
+            size: const BadgeSize(
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              radius: 8,
+              iconSize: 12,
+              fontSize: 13,
             ),
-            child: Text(
-              '# ${tag.name}',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            textStyle: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),

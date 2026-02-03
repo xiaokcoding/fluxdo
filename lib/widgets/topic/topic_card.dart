@@ -6,6 +6,7 @@ import '../../models/category.dart';
 import '../../providers/discourse_providers.dart';
 import '../../constants.dart';
 import '../../utils/font_awesome_helper.dart';
+import '../common/topic_badges.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../utils/time_utils.dart';
 import '../../utils/number_utils.dart';
@@ -193,74 +194,18 @@ class TopicCard extends ConsumerWidget {
                       children: [
                         // 分类 Badge
                         if (category != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: _parseColor(category.color).withValues(alpha:0.08),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: _parseColor(category.color).withValues(alpha:0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (faIcon != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 4),
-                                    child: FaIcon(
-                                      faIcon,
-                                      size: 10,
-                                      color: _parseColor(category.color),
-                                    ),
-                                  )
-                                else if (logoUrl != null && logoUrl.isNotEmpty)
-                                  Image(
-                                    image: discourseImageProvider(
-                                      logoUrl.startsWith('http') 
-                                          ? logoUrl 
-                                          : '${AppConstants.baseUrl}$logoUrl',
-                                    ),
-                                    width: 10,
-                                    height: 10,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return _buildCategoryDot(category);
-                                    },
-                                  )
-                                else if (category.readRestricted)
-                                  _buildCategoryLock(theme, category)
-                                else
-                                  _buildCategoryDot(category),
-                                const SizedBox(width: 4),
-                                Text(
-                                  category.name,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          CategoryBadge(
+                            category: category,
+                            faIcon: faIcon,
+                            logoUrl: logoUrl,
                           ),
                         
                         // 标签 Badges
-                        ...topic.tags.map((tag) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
-                            borderRadius: BorderRadius.circular(6),
+                        ...topic.tags.map(
+                          (tag) => TagBadge(
+                            name: tag.name,
                           ),
-                          child: Text(
-                            '# ${tag.name}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 10,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
@@ -375,32 +320,6 @@ class TopicCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildCategoryDot(Category category) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        color: _parseColor(category.color),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-
-  Widget _buildCategoryLock(ThemeData theme, Category category) {
-    return Icon(
-      Icons.lock,
-      size: 10,
-      color: _parseColor(category.color),
-    );
-  }
-
-  Color _parseColor(String hex) {
-    hex = hex.replaceAll('#', '');
-    if (hex.length == 6) {
-      return Color(int.parse('0xFF$hex'));
-    }
-    return Colors.grey;
-  }
 }
 
 /// 紧凑型话题卡片 - 用于置顶话题

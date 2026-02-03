@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../constants.dart';
 import '../../../models/topic.dart';
-import '../../../models/category.dart';
 import '../../../providers/discourse_providers.dart';
 import '../../../utils/font_awesome_helper.dart';
-import '../../../services/discourse_cache_manager.dart';
 import '../../../widgets/topic/topic_summary_widget.dart';
 import '../../../widgets/common/emoji_text.dart';
 import '../../../utils/time_utils.dart';
 import '../../../utils/number_utils.dart';
 import '../../../widgets/topic/topic_notification_button.dart';
 import 'topic_vote_button.dart';
+import '../../../widgets/common/topic_badges.dart';
 
 /// 话题详情页头部组件
 class TopicDetailHeader extends ConsumerWidget {
@@ -118,27 +115,16 @@ class TopicDetailHeader extends ConsumerWidget {
               children: [
                 // 分类 Badge
                 if (category != null)
-                  _buildCategoryBadge(theme, category, faIcon, logoUrl),
+                  CategoryBadge(
+                    category: category,
+                    faIcon: faIcon,
+                    logoUrl: logoUrl,
+                  ),
 
                 // 标签 Badges
                 if (detail.tags != null)
-                  ...detail.tags!.map((tag) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withValues(alpha:0.3),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Text(
-                      tag.name,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                  ...detail.tags!.map((tag) => TagBadge(
+                    name: tag.name,
                   )),
               ],
             ),
@@ -229,85 +215,4 @@ class TopicDetailHeader extends ConsumerWidget {
   }
 
 
-  Widget _buildCategoryBadge(
-    ThemeData theme,
-    Category category,
-    IconData? faIcon,
-    String? logoUrl,
-  ) {
-    final categoryColor = _parseColor(category.color);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: categoryColor.withValues(alpha:0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: categoryColor.withValues(alpha:0.2),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (faIcon != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: FaIcon(
-                faIcon,
-                size: 11,
-                color: categoryColor,
-              ),
-            )
-          else if (logoUrl != null && logoUrl.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: Image(
-                image: discourseImageProvider(
-                  logoUrl.startsWith('http')
-                      ? logoUrl
-                      : '${AppConstants.baseUrl}$logoUrl',
-                ),
-                width: 12,
-                height: 12,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildCategoryDot(category);
-                },
-              ),
-            )
-          else ...[
-            _buildCategoryDot(category),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            category.name,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryDot(Category category) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: _parseColor(category.color),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-
-  Color _parseColor(String hex) {
-    hex = hex.replaceAll('#', '');
-    if (hex.length == 6) {
-      return Color(int.parse('0xFF$hex'));
-    }
-    return Colors.grey;
-  }
 }

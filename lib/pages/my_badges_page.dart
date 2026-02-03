@@ -6,7 +6,7 @@ import '../providers/discourse_providers.dart';
 import '../services/discourse_cache_manager.dart';
 import '../utils/url_helper.dart';
 import '../widgets/badge/my_badges_skeleton.dart';
-import '../utils/font_awesome_map.dart';
+import '../utils/font_awesome_helper.dart';
 import '../widgets/badge/badge_ui_utils.dart';
 import 'badge_page.dart';
 
@@ -360,14 +360,14 @@ class _MyBadgesPageState extends ConsumerState<MyBadgesPage> {
                                   FaIcon(
                                       badge.icon != null &&
                                               badge.icon!.isNotEmpty
-                                          ? getFontAwesomeIcon(badge.icon!)
+                                          ? (FontAwesomeHelper.getIcon(badge.icon!) ?? BadgeUIUtils.getBadgeIcon(type))
                                           : BadgeUIUtils.getBadgeIcon(type),
                                       size: 24,
                                       color: iconColor),
                             )
                           : FaIcon(
                               badge.icon != null && badge.icon!.isNotEmpty
-                                  ? getFontAwesomeIcon(badge.icon!)
+                                  ? (FontAwesomeHelper.getIcon(badge.icon!) ?? BadgeUIUtils.getBadgeIcon(type))
                                   : BadgeUIUtils.getBadgeIcon(type),
                               size: 24,
                               color: iconColor,

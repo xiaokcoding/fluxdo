@@ -8,6 +8,7 @@ import '../../utils/font_awesome_helper.dart';
 import '../../constants.dart';
 import '../common/category_selection_sheet.dart';
 import '../common/tag_selection_sheet.dart';
+import '../common/topic_badges.dart';
 
 /// 话题编辑器辅助函数和 Widgets
 /// 用于 CreateTopicPage 和 EditTopicPage 的公共逻辑
@@ -529,18 +530,18 @@ class PreviewTagsList extends StatelessWidget {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: tags.map((t) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(6),
+      children: tags.map((t) => TagBadge(
+        name: t,
+        size: const BadgeSize(
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          radius: 6,
+          iconSize: 12,
+          fontSize: 13,
         ),
-        child: Text(
-          '# $t',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontSize: 13,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        textStyle: theme.textTheme.bodyMedium?.copyWith(
+          fontSize: 13,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       )).toList(),
     );

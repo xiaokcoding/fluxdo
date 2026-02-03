@@ -4,7 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../models/badge.dart';
 import '../services/discourse/discourse_service.dart';
 import '../utils/time_utils.dart';
-import '../utils/font_awesome_map.dart';
+import '../utils/font_awesome_helper.dart';
 import '../services/discourse_cache_manager.dart';
 import '../utils/url_helper.dart';
 import '../widgets/common/loading_spinner.dart';
@@ -252,7 +252,7 @@ class _BadgePageState extends ConsumerState<BadgePage> {
 
   Widget _buildIconFallback(Badge badge, Color color, double size) {
     final iconData = badge.icon != null && badge.icon!.isNotEmpty
-        ? getFontAwesomeIcon(badge.icon!)
+        ? (FontAwesomeHelper.getIcon(badge.icon!) ?? FontAwesomeIcons.medal)
         : FontAwesomeIcons.medal;
     return FaIcon(iconData, size: size, color: color);
   }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../providers/discourse_providers.dart';
 import '../models/search_result.dart';
 import '../models/category.dart';
@@ -8,9 +7,9 @@ import '../services/discourse_cache_manager.dart';
 import '../utils/font_awesome_helper.dart';
 import '../utils/time_utils.dart';
 import '../utils/number_utils.dart';
-import '../constants.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import '../widgets/common/loading_spinner.dart';
+import '../widgets/common/topic_badges.dart';
 import 'user_profile_page.dart';
 
 /// 搜索排序方式
@@ -678,26 +677,18 @@ class _SearchPostCard extends ConsumerWidget {
                     children: [
                       // 分类 Badge
                       if (category != null)
-                        _buildCategoryBadge(
-                            context, category, faIcon, logoUrl, theme),
+                        CategoryBadge(
+                          category: category,
+                          faIcon: faIcon,
+                          logoUrl: logoUrl,
+                        ),
 
                       // 标签 Badges
-                      ...topic.tags.take(3).map((tag) => Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest
-                                  .withValues(alpha:0.5),
-                              borderRadius: BorderRadius.circular(6),
+                      ...topic.tags.take(3).map(
+                            (tag) => TagBadge(
+                              name: tag.name,
                             ),
-                            child: Text(
-                              '# ${tag.name}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontSize: 10,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )),
+                          ),
                     ],
                   ),
                 ),
@@ -822,85 +813,6 @@ class _SearchPostCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildCategoryBadge(BuildContext context, Category category,
-      IconData? faIcon, String? logoUrl, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: _parseColor(category.color).withValues(alpha:0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: _parseColor(category.color).withValues(alpha:0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (faIcon != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: FaIcon(
-                faIcon,
-                size: 10,
-                color: _parseColor(category.color),
-              ),
-            )
-          else if (logoUrl != null && logoUrl.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Image(
-                image: discourseImageProvider(
-                  logoUrl.startsWith('http')
-                      ? logoUrl
-                      : '${AppConstants.baseUrl}$logoUrl',
-                ),
-                width: 10,
-                height: 10,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildCategoryDot(category);
-                },
-              ),
-            )
-          else if (category.readRestricted)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Icon(
-                Icons.lock,
-                size: 10,
-                color: _parseColor(category.color),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: _buildCategoryDot(category),
-            ),
-          Text(
-            category.name,
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryDot(Category category) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        color: _parseColor(category.color),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-
   Widget _buildBlurb(String blurb, ThemeData theme) {
     return _buildHighlightedText(
       blurb,
@@ -972,13 +884,6 @@ class _SearchPostCard extends ConsumerWidget {
     );
   }
 
-  Color _parseColor(String hex) {
-    hex = hex.replaceAll('#', '');
-    if (hex.length == 6) {
-      return Color(int.parse('0xFF$hex'));
-    }
-    return Colors.grey;
-  }
 }
 
 /// 搜索结果用户卡片 - 复用 TopicCard 风格

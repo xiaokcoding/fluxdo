@@ -6,6 +6,7 @@ import '../../providers/discourse_providers.dart';
 import '../../utils/font_awesome_helper.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../constants.dart';
+import '../../utils/tag_icon_list.dart';
 
 /// 话题筛选条件
 class TopicFilterParams {
@@ -674,6 +675,7 @@ class ActiveFiltersBar extends ConsumerWidget {
                             label: tag,
                             icon: Icons.label_outline,
                             isTag: true,
+                            tagName: tag,
                             onDeleted: () => ref.read(topicFilterProvider.notifier).removeTag(tag),
                           )),
                     ],
@@ -691,8 +693,17 @@ class ActiveFiltersBar extends ConsumerWidget {
     required IconData icon,
     required VoidCallback onDeleted,
     bool isTag = false,
+    String? tagName,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
+    final tagInfo = (isTag && tagName != null) ? TagIconList.get(tagName) : null;
+    final avatar = tagInfo != null
+        ? FaIcon(tagInfo.icon, size: 14, color: tagInfo.color)
+        : Icon(
+            icon, 
+            size: 14, 
+            color: isTag ? colorScheme.onTertiaryContainer : colorScheme.onSecondaryContainer
+          );
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: InputChip(
@@ -701,11 +712,7 @@ class ActiveFiltersBar extends ConsumerWidget {
           fontSize: 12,
           color: isTag ? colorScheme.onTertiaryContainer : colorScheme.onSecondaryContainer,
         ),
-        avatar: Icon(
-          icon, 
-          size: 14, 
-          color: isTag ? colorScheme.onTertiaryContainer : colorScheme.onSecondaryContainer
-        ),
+        avatar: avatar,
         onDeleted: onDeleted,
         deleteIcon: const Icon(Icons.close, size: 14),
         deleteIconColor: isTag ? colorScheme.onTertiaryContainer : colorScheme.onSecondaryContainer,

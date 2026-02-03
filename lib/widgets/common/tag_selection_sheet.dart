@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:fluxdo/models/tag_search_result.dart';
 import 'package:fluxdo/services/discourse/discourse_service.dart';
+import 'package:fluxdo/widgets/common/topic_badges.dart';
 
 class TagSelectionSheet extends StatefulWidget {
   /// 分类 ID（用于联动过滤标签）
@@ -58,6 +59,33 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
     _currentSelectedTags = List.from(widget.selectedTags);
     // 初始化加载标签
     _searchTags('');
+  }
+
+  Widget _buildRemovableBadge(
+    BuildContext context,
+    Widget badge,
+    VoidCallback onDeleted,
+  ) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        badge,
+        const SizedBox(width: 4),
+        InkWell(
+          onTap: onDeleted,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Icon(
+              Icons.close,
+              size: 14,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -304,12 +332,20 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _currentSelectedTags.map((tag) {
-                      return Chip(
-                        label: Text(tag),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () => _toggleTag(tag),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
+                      return _buildRemovableBadge(
+                        context,
+                        TagBadge(
+                          name: tag,
+                          size: const BadgeSize(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            radius: 6,
+                            iconSize: 12,
+                            fontSize: 13,
+                          ),
+                          backgroundColor: theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.3),
+                        ),
+                        () => _toggleTag(tag),
                       );
                     }).toList(),
                   ),
@@ -335,11 +371,19 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
                             itemBuilder: (context, index) {
                               final tag = displayTags[index];
                               return ListTile(
-                                title: Text(tag.text),
+                                title: TagBadge(
+                                  name: tag.text,
+                                  size: const BadgeSize(
+                                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    radius: 6,
+                                    iconSize: 12,
+                                    fontSize: 12,
+                                  ),
+                                  backgroundColor: Colors.transparent,
+                                ),
                                 subtitle: tag.count > 0
                                     ? Text('${tag.count} 个话题')
                                     : null,
-                                leading: const Icon(Icons.label_outline, size: 20),
                                 trailing: _currentSelectedTags.length >= widget.maxTags
                                     ? Icon(Icons.block, color: theme.colorScheme.outline)
                                     : Icon(Icons.add_circle_outline, color: theme.colorScheme.primary),
