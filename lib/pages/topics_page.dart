@@ -20,6 +20,7 @@ import '../providers/app_state_refresher.dart';
 import '../providers/preferences_provider.dart';
 import '../utils/responsive.dart';
 import '../widgets/layout/master_detail_layout.dart';
+import '../widgets/common/error_view.dart';
 import '../widgets/common/loading_dialog.dart';
 
 class ScrollToTopNotifier extends StateNotifier<int> {
@@ -541,7 +542,11 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
         );
       },
       loading: () => const TopicListSkeleton(),
-      error: (error, stack) => _buildError(error.toString()),
+      error: (error, stack) => ErrorView(
+        error: error,
+        stackTrace: stack,
+        onRetry: () => ref.refresh(topicListProvider(widget.filter)),
+      ),
     );
   }
 
@@ -663,37 +668,8 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
       ),
     );
   }
-
-  Widget _buildError(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_off, size: 64, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 16),
-            Text('加载失败', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => ref.refresh(topicListProvider(widget.filter)),
-              icon: const Icon(Icons.refresh),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
+
 
 /// 筛选按钮
 class _FilterButton extends ConsumerWidget {

@@ -21,6 +21,7 @@ import '../../widgets/post/reply_sheet.dart';
 import '../../widgets/topic/topic_progress.dart';
 import '../../widgets/topic/topic_notification_button.dart';
 import '../../widgets/common/emoji_text.dart';
+import '../../widgets/common/error_view.dart';
 import '../../widgets/content/discourse_html_content/chunked/chunked_html_content.dart';
 import 'controllers/post_highlight_controller.dart';
 import 'controllers/post_visibility_tracker.dart';
@@ -1144,23 +1145,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       // 错误页面
       content = CustomScrollView(
         slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('加载失败\n${detailAsync.error}', textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => ref.refresh(topicDetailProvider(params)),
-                    child: const Text('重试'),
-                  ),
-                ],
-              ),
-            ),
+          SliverErrorView(
+            error: detailAsync.error!,
+            onRetry: () => ref.refresh(topicDetailProvider(params)),
           ),
         ],
       );

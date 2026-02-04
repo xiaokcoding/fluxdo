@@ -9,6 +9,7 @@ import 'badge_page.dart';
 import '../widgets/common/emoji_text.dart';
 import '../widgets/common/smart_avatar.dart';
 import '../widgets/notification/notification_list_skeleton.dart';
+import '../widgets/common/error_view.dart';
 import '../utils/time_utils.dart';
 
 /// 通知列表页面
@@ -158,20 +159,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             );
           },
           loading: () => const NotificationListSkeleton(),
-          error: (error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('加载失败: $error'),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _onRefresh,
-                  child: const Text('重试'),
-                ),
-              ],
-            ),
+          error: (error, stack) => ErrorView(
+            error: error,
+            stackTrace: stack,
+            onRetry: _onRefresh,
           ),
         ),
       ),

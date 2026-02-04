@@ -4,6 +4,7 @@ import '../models/topic.dart';
 import '../providers/discourse_providers.dart';
 import '../widgets/topic/topic_card.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
+import '../widgets/common/error_view.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 
 /// 浏览历史页面
@@ -111,20 +112,10 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
             );
           },
           loading: () => const TopicListSkeleton(),
-          error: (error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('加载失败: $error'),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _onRefresh,
-                  child: const Text('重试'),
-                ),
-              ],
-            ),
+          error: (error, stack) => ErrorView(
+            error: error,
+            stackTrace: stack,
+            onRetry: _onRefresh,
           ),
         ),
       ),
