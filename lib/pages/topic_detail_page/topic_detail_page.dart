@@ -484,8 +484,10 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
         final safeIndex = (posts.length - 20).clamp(0, posts.length - 1);
         anchorPostNumber = posts[safeIndex].postNumber;
       }
-      _visibilityTracker.reset(); // 清除旧的可见性数据，防止“占位”导致进度条回跳
+      _visibilityTracker.reset(); // 清除旧的可见性数据，防止"占位"导致进度条回跳
       _scrollController.jumpToPostLocally(postNumber, anchorPostNumber: anchorPostNumber);
+      // 触发重建，让 _buildPostListContent 重新进入初始定位逻辑
+      if (mounted) setState(() {});
     }
     _highlightController.triggerHighlight(postNumber);
   }
@@ -528,6 +530,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
 
         _visibilityTracker.reset(); // 清除旧的可见性数据
         _scrollController.jumpToPostLocally(post.postNumber, anchorPostNumber: anchorPostNumber);
+        // 触发重建，让 _buildPostListContent 重新进入初始定位逻辑
+        if (mounted) setState(() {});
       }
       _highlightController.triggerHighlight(post.postNumber);
       return;

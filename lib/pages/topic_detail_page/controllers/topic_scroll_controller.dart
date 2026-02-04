@@ -96,6 +96,13 @@ class TopicScrollController extends ChangeNotifier {
   /// 更新状态
   void _updateState(TopicScrollState newState) {
     if (_state != newState) {
+      // 同步 ValueNotifier 状态
+      if (_state.showBottomBar != newState.showBottomBar) {
+        showBottomBarNotifier.value = newState.showBottomBar;
+      }
+      if (_state.isPositioned != newState.isPositioned) {
+        isPositionedNotifier.value = newState.isPositioned;
+      }
       _state = newState;
       notifyListeners();
     }
@@ -237,7 +244,7 @@ class TopicScrollController extends ChangeNotifier {
       initialCenterPostNumber: null,
       currentPostNumber: postNumber,
     ));
-    isPositionedNotifier.value = false;
+    // isPositionedNotifier 已在 _updateState 中同步
   }
 
   /// 准备刷新
@@ -288,7 +295,7 @@ class TopicScrollController extends ChangeNotifier {
       initialCenterPostNumber: anchorPostNumber ?? postNumber,
       currentPostNumber: postNumber,
     ));
-    isPositionedNotifier.value = false;
+    // isPositionedNotifier 已在 _updateState 中同步
   }
 
   @override
