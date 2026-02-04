@@ -61,32 +61,6 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
     _searchTags('');
   }
 
-  Widget _buildRemovableBadge(
-    BuildContext context,
-    Widget badge,
-    VoidCallback onDeleted,
-  ) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        badge,
-        const SizedBox(width: 4),
-        InkWell(
-          onTap: onDeleted,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.all(2),
-            child: Icon(
-              Icons.close,
-              size: 14,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   @override
   void dispose() {
@@ -100,12 +74,13 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      _searchTags(query);
+      if (mounted) _searchTags(query);
     });
   }
 
   /// 调用 API 搜索标签
   Future<void> _searchTags(String query) async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -332,20 +307,15 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _currentSelectedTags.map((tag) {
-                      return _buildRemovableBadge(
-                        context,
-                        TagBadge(
-                          name: tag,
-                          size: const BadgeSize(
-                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            radius: 6,
-                            iconSize: 12,
-                            fontSize: 13,
-                          ),
-                          backgroundColor: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.3),
+                      return RemovableTagBadge(
+                        name: tag,
+                        onDeleted: () => _toggleTag(tag),
+                        size: const BadgeSize(
+                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          radius: 8,
+                          iconSize: 12,
+                          fontSize: 13,
                         ),
-                        () => _toggleTag(tag),
                       );
                     }).toList(),
                   ),

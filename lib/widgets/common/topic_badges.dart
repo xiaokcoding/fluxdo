@@ -80,6 +80,130 @@ class TagBadge extends StatelessWidget {
   }
 }
 
+/// 可删除的标签徽章
+class RemovableTagBadge extends StatelessWidget {
+  final String name;
+  final VoidCallback onDeleted;
+  final BadgeSize size;
+  final Color? backgroundColor;
+
+  const RemovableTagBadge({
+    super.key,
+    required this.name,
+    required this.onDeleted,
+    this.size = BadgeSize.compact,
+    this.backgroundColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tagInfo = TagIconList.get(name);
+    final bg = backgroundColor ??
+        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onDeleted,
+        borderRadius: BorderRadius.circular(size.radius),
+        child: Container(
+          padding: size.padding,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(size.radius),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (tagInfo != null) ...[
+                FaIcon(
+                  tagInfo.icon,
+                  size: size.iconSize,
+                  color: tagInfo.color,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                name,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: size.fontSize,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.close,
+                size: size.iconSize + 2,
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 可删除的分类徽章
+class RemovableCategoryBadge extends StatelessWidget {
+  final String name;
+  final VoidCallback onDeleted;
+  final BadgeSize size;
+
+  const RemovableCategoryBadge({
+    super.key,
+    required this.name,
+    required this.onDeleted,
+    this.size = BadgeSize.compact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bg = theme.colorScheme.secondaryContainer;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onDeleted,
+        borderRadius: BorderRadius.circular(size.radius),
+        child: Container(
+          padding: size.padding,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(size.radius),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.category_outlined,
+                size: size.iconSize,
+                color: theme.colorScheme.onSecondaryContainer,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                name,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: size.fontSize,
+                  color: theme.colorScheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.close,
+                size: size.iconSize + 2,
+                color: theme.colorScheme.onSecondaryContainer.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class CategoryBadge extends StatelessWidget {
   final Category category;
   final IconData? faIcon;

@@ -142,7 +142,7 @@ class _MentionAutocompleteState extends State<MentionAutocomplete> {
     // 防抖搜索（空字符串也会触发请求，与官方行为一致）
     _debounceTimer?.cancel();
     _debounceTimer = Timer(Duration(milliseconds: widget.debounceMs), () {
-      _performSearch(searchTerm);
+      if (mounted) _performSearch(searchTerm);
     });
   }
 

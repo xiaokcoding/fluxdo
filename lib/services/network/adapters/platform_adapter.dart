@@ -54,9 +54,16 @@ void configurePlatformAdapter(Dio dio) {
     _currentAdapterType = AdapterType.network;
   } else {
     // 默认: 使用 NativeAdapter
-    dio.httpClientAdapter = NativeAdapter();
-    debugPrint('[DIO] Using NativeAdapter on ${Platform.operatingSystem}');
-    _currentAdapterType = AdapterType.native;
+    // 注意: 调试模式下使用 IOHttpClientAdapter 避免热重启崩溃
+    if (kDebugMode && (Platform.isMacOS || Platform.isIOS)) {
+      // 调试模式下使用默认适配器，避免 native_dio_adapter 热重启崩溃
+      debugPrint('[DIO] Using IOHttpClientAdapter on ${Platform.operatingSystem} (debug mode)');
+      _currentAdapterType = AdapterType.native;
+    } else {
+      dio.httpClientAdapter = NativeAdapter();
+      debugPrint('[DIO] Using NativeAdapter on ${Platform.operatingSystem}');
+      _currentAdapterType = AdapterType.native;
+    }
   }
 }
 

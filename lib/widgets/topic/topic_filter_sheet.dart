@@ -7,6 +7,8 @@ import '../../utils/font_awesome_helper.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../constants.dart';
 import '../../utils/tag_icon_list.dart';
+import '../common/topic_badges.dart';
+import '../common/tag_selection_sheet.dart';
 
 /// 话题筛选条件
 class TopicFilterParams {
@@ -107,6 +109,10 @@ class TopicFilterNotifier extends Notifier<TopicFilterParams> {
     state = state.copyWith(tags: state.tags.where((t) => t != tag).toList());
   }
 
+  void setTags(List<String> tags) {
+    state = state.copyWith(tags: tags);
+  }
+
   void clearAll() {
     state = const TopicFilterParams();
   }
@@ -131,6 +137,32 @@ class _TopicFilterSheetState extends ConsumerState<TopicFilterSheet> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 打开标签搜索弹框
+  Future<void> _openTagSearchSheet() async {
+    final filter = ref.read(topicFilterProvider);
+    final tagsAsync = ref.read(tagsProvider);
+    final availableTags = tagsAsync.when(
+      data: (tags) => tags,
+      loading: () => <String>[],
+      error: (e, s) => <String>[],
+    );
+
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TagSelectionSheet(
+        availableTags: availableTags,
+        selectedTags: filter.tags,
+        maxTags: 99, // 筛选场景不限制标签数量
+      ),
+    );
+
+    if (result != null && mounted) {
+      ref.read(topicFilterProvider.notifier).setTags(result);
+    }
   }
 
   @override
@@ -174,17 +206,23 @@ class _TopicFilterSheetState extends ConsumerState<TopicFilterSheet> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (filter.isNotEmpty)
-                  TextButton(
-                    onPressed: () {
-                      ref.read(topicFilterProvider.notifier).clearAll();
-                    },
+                // 保持占位避免抖动
+                Visibility(
+                  visible: filter.isNotEmpty,
+                  maintainSize: true,
+                  maintainAnimation: true,
+                  maintainState: true,
+                  child: TextButton(
+                    onPressed: filter.isNotEmpty
+                        ? () => ref.read(topicFilterProvider.notifier).clearAll()
+                        : null,
                     style: TextButton.styleFrom(
                       foregroundColor: colorScheme.error,
                       visualDensity: VisualDensity.compact,
                     ),
                     child: const Text('重置'),
                   ),
+                ),
               ],
             ),
           ),
@@ -221,7 +259,7 @@ class _TopicFilterSheetState extends ConsumerState<TopicFilterSheet> {
                 ),
                 
                 const SizedBox(height: 24),
-                
+
                 // 标签选择
                 Row(
                   children: [
@@ -231,23 +269,63 @@ class _TopicFilterSheetState extends ConsumerState<TopicFilterSheet> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message: '目前支持筛选热门标签',
-                      child: Icon(Icons.info_outline, size: 16, color: colorScheme.outline),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _openTagSearchSheet,
+                      icon: const Icon(Icons.search, size: 18),
+                      label: const Text('搜索更多'),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
+
+                // 标签列表（热门标签 + 已选的非热门标签）
                 tagsAsync.when(
-                  data: (tags) {
-                    if (tags.isEmpty) {
+                  data: (hotTags) {
+                    // 找出已选但不在热门中的标签
+                    final extraSelectedTags = filter.tags
+                        .where((t) => !hotTags.contains(t))
+                        .toList();
+
+                    if (hotTags.isEmpty && extraSelectedTags.isEmpty) {
                       return Text(
-                        '暂无可用标签',
+                        '暂无热门标签',
                         style: TextStyle(color: colorScheme.outline),
                       );
                     }
-                    return _buildTagWrap(context, ref, tags, filter.tags);
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 已选的非热门标签（如果有）
+                        if (extraSelectedTags.isNotEmpty) ...[
+                          Text(
+                            '已选标签',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildTagWrap(context, ref, extraSelectedTags, filter.tags),
+                          const SizedBox(height: 16),
+                        ],
+                        // 热门标签
+                        if (hotTags.isNotEmpty) ...[
+                          Text(
+                            '热门标签',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildTagWrap(context, ref, hotTags, filter.tags),
+                        ],
+                      ],
+                    );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Text('加载标签失败: $e'),
@@ -426,36 +504,76 @@ class _TopicFilterSheetState extends ConsumerState<TopicFilterSheet> {
     List<String> allTags,
     List<String> selectedTags,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: allTags.map((tag) {
         final isSelected = selectedTags.contains(tag);
-        return FilterChip(
-          label: Text(tag),
-          selected: isSelected,
-          onSelected: (_) {
-            ref.read(topicFilterProvider.notifier).toggleTag(tag);
-          },
-          backgroundColor: colorScheme.surfaceContainerLow,
-          selectedColor: colorScheme.primaryContainer,
-          labelStyle: TextStyle(
-            color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            fontSize: 13,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(
-              color: isSelected ? colorScheme.primary : Colors.transparent,
+        final tagInfo = TagIconList.get(tag);
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              ref.read(topicFilterProvider.notifier).toggleTag(tag);
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? colorScheme.primaryContainer
+                    : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected
+                      ? colorScheme.primary.withValues(alpha: 0.5)
+                      : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 固定图标区域宽度，避免切换时抖动
+                  if (tagInfo != null || isSelected)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: Center(
+                          child: isSelected
+                              ? Icon(
+                                  Icons.check,
+                                  size: 14,
+                                  color: colorScheme.primary,
+                                )
+                              : FaIcon(
+                                  tagInfo!.icon,
+                                  size: 12,
+                                  color: tagInfo.color,
+                                ),
+                        ),
+                      ),
+                    ),
+                  Text(
+                    tag,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-          visualDensity: VisualDensity.compact,
-          showCheckmark: false,
-          avatar: isSelected ? Icon(Icons.check, size: 16, color: colorScheme.primary) : null,
         );
       }).toList(),
     );
@@ -521,10 +639,10 @@ class _CategoryFilterItem extends StatelessWidget {
                 : color.withValues(alpha:0.08),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: isSelected 
+              color: isSelected
                   ? color
                   : color.withValues(alpha:0.2),
-              width: isSelected ? 1.5 : 1,
+              width: 1,
             ),
           ),
           child: Row(
@@ -663,20 +781,32 @@ class ActiveFiltersBar extends ConsumerWidget {
                     children: [
                       // 分类筛选
                       if (filter.categoryId != null)
-                        _buildFilterChip(
-                          context, 
-                          label: filter.categoryName ?? '分类',
-                          icon: Icons.category_outlined,
-                          onDeleted: () => ref.read(topicFilterProvider.notifier).setCategory(null),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: RemovableCategoryBadge(
+                            name: filter.categoryName ?? '分类',
+                            onDeleted: () => ref.read(topicFilterProvider.notifier).setCategory(null),
+                            size: const BadgeSize(
+                              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              radius: 8,
+                              iconSize: 12,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       // 标签筛选
-                      ...filter.tags.map((tag) => _buildFilterChip(
-                            context,
-                            label: tag,
-                            icon: Icons.label_outline,
-                            isTag: true,
-                            tagName: tag,
-                            onDeleted: () => ref.read(topicFilterProvider.notifier).removeTag(tag),
+                      ...filter.tags.map((tag) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: RemovableTagBadge(
+                              name: tag,
+                              onDeleted: () => ref.read(topicFilterProvider.notifier).removeTag(tag),
+                              size: const BadgeSize(
+                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                radius: 8,
+                                iconSize: 12,
+                                fontSize: 12,
+                              ),
+                            ),
                           )),
                     ],
                   ),
@@ -687,40 +817,4 @@ class ActiveFiltersBar extends ConsumerWidget {
     );
   }
   
-  Widget _buildFilterChip(
-    BuildContext context, {
-    required String label,
-    required IconData icon,
-    required VoidCallback onDeleted,
-    bool isTag = false,
-    String? tagName,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final tagInfo = (isTag && tagName != null) ? TagIconList.get(tagName) : null;
-    final avatar = tagInfo != null
-        ? FaIcon(tagInfo.icon, size: 14, color: tagInfo.color)
-        : Icon(
-            icon, 
-            size: 14, 
-            color: isTag ? colorScheme.onTertiaryContainer : colorScheme.onSecondaryContainer
-          );
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InputChip(
-        label: Text(label),
-        labelStyle: TextStyle(
-          fontSize: 12,
-          color: isTag ? colorScheme.onTertiaryContainer : colorScheme.onSecondaryContainer,
-        ),
-        avatar: avatar,
-        onDeleted: onDeleted,
-        deleteIcon: const Icon(Icons.close, size: 14),
-        deleteIconColor: isTag ? colorScheme.onTertiaryContainer : colorScheme.onSecondaryContainer,
-        backgroundColor: isTag ? colorScheme.tertiaryContainer : colorScheme.secondaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
-      ),
-    );
-  }
 }
