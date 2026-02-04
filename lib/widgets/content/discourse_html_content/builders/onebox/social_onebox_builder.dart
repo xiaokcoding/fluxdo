@@ -93,11 +93,28 @@ class SocialOneboxBuilder {
                   ],
                 ),
               ),
-              // Twitter/X 图标
-              Icon(
-                Icons.chat_bubble_outline, // 使用类似图标代替 X logo
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
+              // X 平台标识
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: theme.brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    '𝕏',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.black
+                          : Colors.white,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
