@@ -26,6 +26,35 @@ class PaginationResult<T> {
   });
 }
 
+/// hasMore 判断上下文
+class HasMoreContext<T> {
+  /// API 返回的原始数据
+  final List<T> responseItems;
+
+  /// 去重后的新数据（仅在 loadMore 时有意义）
+  final List<T> newItems;
+
+  /// 合并后的总数据量
+  final int totalCount;
+
+  /// 是否是刷新操作
+  final bool isRefresh;
+
+  /// 原始分页结果
+  final PaginationResult<T> result;
+
+  const HasMoreContext({
+    required this.responseItems,
+    required this.newItems,
+    required this.totalCount,
+    required this.isRefresh,
+    required this.result,
+  });
+}
+
+/// 自定义 hasMore 判断函数类型
+typedef HasMoreChecker<T> = bool Function(HasMoreContext<T> context);
+
 /// hasMore 判断策略
 enum HasMoreStrategy {
   /// 基于 moreUrl 是否为 null
@@ -36,6 +65,9 @@ enum HasMoreStrategy {
 
   /// 基于返回数量是否达到预期 + 去重后是否有新数据
   byCountAndNewItems,
+
+  /// 使用自定义判断函数
+  custom,
 }
 
 /// 分页状态
@@ -74,17 +106,29 @@ class PaginationHelper<T> {
   /// 每页预期数量（用于 byCountAndNewItems 策略）
   final int expectedPageSize;
 
+  /// 自定义 hasMore 判断函数（用于 custom 策略）
+  final HasMoreChecker<T>? hasMoreChecker;
+
   const PaginationHelper({
     required this.keyExtractor,
     this.strategy = HasMoreStrategy.byMoreUrl,
     this.expectedPageSize = 30,
+    this.hasMoreChecker,
   });
 
   /// 处理初始加载或刷新的结果
   PaginationState<T> processRefresh(PaginationResult<T> result) {
+    final context = HasMoreContext(
+      responseItems: result.items,
+      newItems: result.items,
+      totalCount: result.items.length,
+      isRefresh: true,
+      result: result,
+    );
+
     return PaginationState(
       items: result.items,
-      hasMore: _checkHasMore(result, result.items, result.items.length),
+      hasMore: _checkHasMore(context),
       currentOffset: result.items.length,
     );
   }
@@ -104,30 +148,41 @@ class PaginationHelper<T> {
 
     final mergedItems = [...currentItems, ...newItems];
 
+    final context = HasMoreContext(
+      responseItems: result.items,
+      newItems: newItems,
+      totalCount: mergedItems.length,
+      isRefresh: false,
+      result: result,
+    );
+
     return PaginationState(
       items: mergedItems,
-      hasMore: _checkHasMore(result, newItems, mergedItems.length),
+      hasMore: _checkHasMore(context),
       currentOffset: mergedItems.length,
     );
   }
 
   /// 根据策略判断是否还有更多数据
-  bool _checkHasMore(
-    PaginationResult<T> result,
-    List<T> newItems,
-    int totalCount,
-  ) {
+  bool _checkHasMore(HasMoreContext<T> context) {
     switch (strategy) {
       case HasMoreStrategy.byMoreUrl:
-        return result.moreUrl != null;
+        return context.result.moreUrl != null;
 
       case HasMoreStrategy.byTotalRows:
-        return totalCount < (result.totalRows ?? 0);
+        return context.totalCount < (context.result.totalRows ?? 0);
 
       case HasMoreStrategy.byCountAndNewItems:
-        final pageSize = result.expectedPageSize ?? expectedPageSize;
-        // 返回数量达到预期 且 去重后有新数据
-        return result.items.length >= pageSize && newItems.isNotEmpty;
+        final pageSize = context.result.expectedPageSize ?? expectedPageSize;
+        if (context.isRefresh) {
+          // 刷新时只检查返回数量
+          return context.responseItems.length >= pageSize;
+        }
+        // 加载更多时检查返回数量 + 去重后是否有新数据
+        return context.responseItems.length >= pageSize && context.newItems.isNotEmpty;
+
+      case HasMoreStrategy.custom:
+        return hasMoreChecker?.call(context) ?? false;
     }
   }
 }
@@ -163,6 +218,18 @@ class PaginationHelpers {
       keyExtractor: keyExtractor,
       strategy: HasMoreStrategy.byCountAndNewItems,
       expectedPageSize: expectedPageSize,
+    );
+  }
+
+  /// 游标分页助手（支持自定义 hasMore 判断）
+  static PaginationHelper<T> forCursor<T>({
+    required Object Function(T item) keyExtractor,
+    required HasMoreChecker<T> hasMoreChecker,
+  }) {
+    return PaginationHelper<T>(
+      keyExtractor: keyExtractor,
+      strategy: HasMoreStrategy.custom,
+      hasMoreChecker: hasMoreChecker,
     );
   }
 }

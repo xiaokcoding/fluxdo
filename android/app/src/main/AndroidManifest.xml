@@ -28,18 +28,31 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Deep Links for linux.do -->
+            <!-- Deep Links for linux.do - 话题链接 -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="linux.do" />
+                <data android:scheme="https" android:host="linux.do" android:pathPrefix="/t/" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" android:host="linux.do" />
+                <data android:scheme="http" android:host="linux.do" android:pathPrefix="/t/" />
+            </intent-filter>
+            <!-- Deep Links for linux.do - 用户链接 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="linux.do" android:pathPrefix="/u/" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" android:host="linux.do" android:pathPrefix="/u/" />
             </intent-filter>
             <!-- Custom URL Scheme -->
             <intent-filter>

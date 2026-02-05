@@ -383,7 +383,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
     expectedPageSize: 30,
   );
 
-  /// 用户回应分页助手
+  /// 用户回应分页助手（游标分页）
   static final _reactionsPaginationHelper = PaginationHelpers.forList<UserReaction>(
     keyExtractor: (r) => r.id,
     expectedPageSize: 20,

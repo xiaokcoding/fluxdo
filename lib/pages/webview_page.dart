@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../utils/link_launcher.dart';
 import '../constants.dart';
 import '../services/network/cookie/cookie_jar_service.dart';
 import '../services/webview_settings.dart';
@@ -247,24 +247,20 @@ class _WebViewPageState extends State<WebViewPage> {
   }
 
   Future<void> _openInExternalBrowser() async {
-    final uri = Uri.tryParse(_currentUrl);
-    if (uri != null) {
-      try {
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('无法打开外部浏览器')),
-            );
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('打开失败: $e')),
-          );
-        }
+    if (_currentUrl.isEmpty) return;
+
+    try {
+      final success = await launchInExternalBrowser(_currentUrl);
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('无法打开外部浏览器')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('打开失败: $e')),
+        );
       }
     }
   }

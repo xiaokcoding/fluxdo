@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../utils/link_launcher.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import '../../models/topic.dart';
@@ -406,16 +406,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       username: username,
       anonymousShare: prefs.anonymousShare,
     );
-    final uri = Uri.parse(url);
 
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开浏览器')),
-        );
-      }
+    final success = await launchInExternalBrowser(url);
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('无法打开浏览器')),
+      );
     }
   }
 
