@@ -234,6 +234,9 @@ class TopicScrollController extends ChangeNotifier {
   }
 
   /// 准备跳转到帖子（重新加载数据）
+  /// [postNumber] 目标帖子号，服务器会返回以此为中心的数据
+  /// 注意：这里故意不设置 initialCenterPostNumber，等数据加载后由 markInitialScrolled
+  /// 使用 posts.first.postNumber 来设置，避免跳转到末尾时产生底部空白
   void prepareJumpToPost(int postNumber) {
     _updateState(TopicScrollState(
       showBackToTop: _state.showBackToTop,
@@ -248,6 +251,9 @@ class TopicScrollController extends ChangeNotifier {
   }
 
   /// 准备刷新
+  /// [anchorPostNumber] 刷新后的锚点位置，用于滚动目标
+  /// 注意：这里故意不设置 initialCenterPostNumber，等数据加载后由 markInitialScrolled
+  /// 使用 posts.first.postNumber 来设置，避免刷新后产生底部空白
   void prepareRefresh(int anchorPostNumber, {bool skipHighlight = false}) {
     _updateState(TopicScrollState(
       showBackToTop: _state.showBackToTop,
@@ -262,10 +268,16 @@ class TopicScrollController extends ChangeNotifier {
 
   /// 标记初始滚动完成
   void markInitialScrolled(int firstPostNumber) {
-    _updateState(_state.copyWith(
-      hasInitialScrolled: true,
-      initialCenterPostNumber: firstPostNumber,
-    ));
+    // 如果 initialCenterPostNumber 已经被 jumpToPostLocally 设置，保留它
+    // 否则使用首个帖子的位置（首次加载场景）
+    if (_state.initialCenterPostNumber != null) {
+      _updateState(_state.copyWith(hasInitialScrolled: true));
+    } else {
+      _updateState(_state.copyWith(
+        hasInitialScrolled: true,
+        initialCenterPostNumber: firstPostNumber,
+      ));
+    }
   }
 
   /// 标记定位完成

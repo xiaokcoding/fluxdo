@@ -46,6 +46,33 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
   bool get isAuthorOnlyMode => _usernameFilter != null;
   bool get _isFilteredMode => _filter != null || _usernameFilter != null;
 
+  /// 根据 posts 和 stream 统一计算边界状态
+  ///
+  /// 所有需要更新 hasMoreBefore/hasMoreAfter 的地方都应该调用此方法，
+  /// 确保判断逻辑的一致性。
+  ///
+  /// 判断依据：
+  /// - stream 包含话题中所有可见帖子的 ID（按顺序排列）
+  /// - posts 是当前已加载的帖子列表
+  /// - 通过比较 posts 的首尾帖子在 stream 中的位置来判断是否还有更多
+  void _updateBoundaryState(List<Post> posts, List<int> stream) {
+    if (posts.isEmpty || stream.isEmpty) {
+      _hasMoreBefore = false;
+      _hasMoreAfter = false;
+      return;
+    }
+
+    // 判断是否还有更早的帖子
+    final firstPostId = posts.first.id;
+    final firstIndex = stream.indexOf(firstPostId);
+    _hasMoreBefore = firstIndex > 0;
+
+    // 判断是否还有更多帖子
+    final lastPostId = posts.last.id;
+    final lastIndex = stream.indexOf(lastPostId);
+    _hasMoreAfter = lastIndex != -1 && lastIndex < stream.length - 1;
+  }
+
   @override
   Future<TopicDetail> build() async {
     debugPrint('[TopicDetailNotifier] build called with topicId=${arg.topicId}, postNumber=${arg.postNumber}');
@@ -55,20 +82,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     // 初始加载时传 trackVisit: true，记录用户访问
     final detail = await service.getTopicDetail(arg.topicId, postNumber: arg.postNumber, trackVisit: true);
 
-    final posts = detail.postStream.posts;
-    final stream = detail.postStream.stream;
-    if (posts.isEmpty) {
-      _hasMoreAfter = false;
-      _hasMoreBefore = false;
-    } else {
-      final firstPostId = posts.first.id;
-      final firstIndex = stream.indexOf(firstPostId);
-      _hasMoreBefore = firstIndex > 0;
-
-      final lastPostId = posts.last.id;
-      final lastIndex = stream.indexOf(lastPostId);
-      _hasMoreAfter = lastIndex < stream.length - 1;
-    }
+    _updateBoundaryState(detail.postStream.posts, detail.postStream.stream);
 
     return detail;
   }
@@ -116,20 +130,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
         usernameFilters: _usernameFilter,
       );
 
-      final posts = detail.postStream.posts;
-      final stream = detail.postStream.stream;
-      if (posts.isEmpty) {
-        _hasMoreAfter = false;
-        _hasMoreBefore = false;
-      } else {
-        final firstPostId = posts.first.id;
-        final firstIndex = stream.indexOf(firstPostId);
-        _hasMoreBefore = firstIndex > 0;
-
-        final lastPostId = posts.last.id;
-        final lastIndex = stream.indexOf(lastPostId);
-        _hasMoreAfter = lastIndex < stream.length - 1;
-      }
+      _updateBoundaryState(detail.postStream.posts, detail.postStream.stream);
 
       return detail;
     });
@@ -145,20 +146,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       final service = ref.read(discourseServiceProvider);
       final detail = await service.getTopicDetail(arg.topicId, filter: _filter, usernameFilters: _usernameFilter);
 
-      final posts = detail.postStream.posts;
-      final stream = detail.postStream.stream;
-      if (posts.isEmpty) {
-        _hasMoreAfter = false;
-        _hasMoreBefore = false;
-      } else {
-        final firstPostId = posts.first.id;
-        final firstIndex = stream.indexOf(firstPostId);
-        _hasMoreBefore = firstIndex > 0;
-
-        final lastPostId = posts.last.id;
-        final lastIndex = stream.indexOf(lastPostId);
-        _hasMoreAfter = lastIndex < stream.length - 1;
-      }
+      _updateBoundaryState(detail.postStream.posts, detail.postStream.stream);
 
       return detail;
     });
@@ -301,18 +289,22 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       state = await AsyncValue.guard(() async {
         final currentDetail = state.requireValue;
         final currentPosts = currentDetail.postStream.posts;
+        final stream = currentDetail.postStream.stream;
 
         if (currentPosts.isEmpty) {
           _hasMoreBefore = false;
           return currentDetail;
         }
 
-        final firstPostNumber = currentPosts.first.postNumber;
-        if (firstPostNumber <= 1) {
+        // 使用 stream 来判断是否还有更多（与 reloadWithPostNumber 保持一致）
+        final firstPostId = currentPosts.first.id;
+        final firstIndex = stream.indexOf(firstPostId);
+        if (firstIndex <= 0) {
           _hasMoreBefore = false;
           return currentDetail;
         }
 
+        final firstPostNumber = currentPosts.first.postNumber;
         final service = ref.read(discourseServiceProvider);
         // 使用 posts.json 接口，向上加载（asc: false）
         final newPostStream = await service.getPostsByNumber(
@@ -333,7 +325,10 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
         final newPostIds = newPosts.map((p) => p.id).where((id) => !existingStreamIds.contains(id)).toList();
         final mergedStream = [...newPostIds, ...currentStream];
 
-        _hasMoreBefore = mergedPosts.first.postNumber > 1;
+        // 使用 stream 来判断是否还有更多
+        final newFirstId = mergedPosts.first.id;
+        final newFirstIndex = mergedStream.indexOf(newFirstId);
+        _hasMoreBefore = newFirstIndex > 0;
 
         return currentDetail.copyWith(
           postStream: PostStream(posts: mergedPosts, stream: mergedStream),
@@ -362,18 +357,22 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       state = await AsyncValue.guard(() async {
         final currentDetail = state.requireValue;
         final currentPosts = currentDetail.postStream.posts;
+        final stream = currentDetail.postStream.stream;
 
         if (currentPosts.isEmpty) {
           _hasMoreAfter = false;
           return currentDetail;
         }
 
-        final lastPostNumber = currentPosts.last.postNumber;
-        if (lastPostNumber >= currentDetail.postsCount) {
+        // 使用 stream 来判断是否还有更多（与 reloadWithPostNumber 保持一致）
+        final lastPostId = currentPosts.last.id;
+        final lastIndex = stream.indexOf(lastPostId);
+        if (lastIndex == -1 || lastIndex >= stream.length - 1) {
           _hasMoreAfter = false;
           return currentDetail;
         }
 
+        final lastPostNumber = currentPosts.last.postNumber;
         final service = ref.read(discourseServiceProvider);
         // 使用 posts.json 接口，向下加载（asc: true）
         final newPostStream = await service.getPostsByNumber(
@@ -394,7 +393,10 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
         final newPostIds = newPosts.map((p) => p.id).where((id) => !existingStreamIds.contains(id)).toList();
         final mergedStream = [...currentStream, ...newPostIds];
 
-        _hasMoreAfter = mergedPosts.last.postNumber < currentDetail.postsCount;
+        // 使用 stream 来判断是否还有更多
+        final newLastId = mergedPosts.last.id;
+        final newLastIndex = mergedStream.indexOf(newLastId);
+        _hasMoreAfter = newLastIndex < mergedStream.length - 1;
 
         return currentDetail.copyWith(
           postStream: PostStream(posts: mergedPosts, stream: mergedStream),
@@ -444,15 +446,13 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       
       final mergedPosts = [...currentPosts, ...newPosts];
       mergedPosts.sort((a, b) => a.postNumber.compareTo(b.postNumber));
-      
-      // 合并 stream：将新帖子的 ID 添加到 stream 中
-      final currentStream = currentDetail.postStream.stream;
-      final existingStreamIds = currentStream.toSet();
-      final newPostIds = newPosts.map((p) => p.id).where((id) => !existingStreamIds.contains(id)).toList();
-      final mergedStream = [...currentStream, ...newPostIds];
-      
-      _hasMoreAfter = mergedPosts.last.postNumber < newDetail.postsCount;
-      
+
+      // 使用新返回的 stream（包含最新的帖子 ID 列表）
+      final mergedStream = newDetail.postStream.stream;
+
+      // 使用统一方法更新边界状态
+      _updateBoundaryState(mergedPosts, mergedStream);
+
       state = AsyncValue.data(currentDetail.copyWith(
         postsCount: newDetail.postsCount,
         postStream: PostStream(posts: mergedPosts, stream: mergedStream),
@@ -829,20 +829,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
         usernameFilters: _usernameFilter,
       );
 
-      final posts = detail.postStream.posts;
-      final stream = detail.postStream.stream;
-      if (posts.isEmpty) {
-        _hasMoreAfter = false;
-        _hasMoreBefore = false;
-      } else {
-        final firstPostId = posts.first.id;
-        final firstIndex = stream.indexOf(firstPostId);
-        _hasMoreBefore = firstIndex > 0;
-
-        final lastPostId = posts.last.id;
-        final lastIndex = stream.indexOf(lastPostId);
-        _hasMoreAfter = lastIndex < stream.length - 1;
-      }
+      _updateBoundaryState(detail.postStream.posts, detail.postStream.stream);
 
       return detail;
     });
@@ -864,20 +851,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
         usernameFilters: _usernameFilter,
       );
 
-      final posts = detail.postStream.posts;
-      final stream = detail.postStream.stream;
-      if (posts.isEmpty) {
-        _hasMoreAfter = false;
-        _hasMoreBefore = false;
-      } else {
-        final firstPostId = posts.first.id;
-        final firstIndex = stream.indexOf(firstPostId);
-        _hasMoreBefore = firstIndex > 0;
-
-        final lastPostId = posts.last.id;
-        final lastIndex = stream.indexOf(lastPostId);
-        _hasMoreAfter = lastIndex < stream.length - 1;
-      }
+      _updateBoundaryState(detail.postStream.posts, detail.postStream.stream);
 
       return detail;
     });
@@ -905,12 +879,18 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       final mergedPosts = [...currentPosts, ...newPosts];
       mergedPosts.sort((a, b) => a.postNumber.compareTo(b.postNumber));
 
-      // 更新边界状态
-      _hasMoreBefore = mergedPosts.first.postNumber > 1;
-      _hasMoreAfter = mergedPosts.last.postNumber < currentDetail.postsCount;
+      // 合并 stream
+      final currentStream = currentDetail.postStream.stream;
+      final newStream = newDetail.postStream.stream;
+      final existingStreamIds = currentStream.toSet();
+      final newStreamIds = newStream.where((id) => !existingStreamIds.contains(id)).toList();
+      final mergedStream = [...currentStream, ...newStreamIds];
+
+      // 使用统一方法更新边界状态
+      _updateBoundaryState(mergedPosts, mergedStream);
 
       state = AsyncValue.data(currentDetail.copyWith(
-        postStream: PostStream(posts: mergedPosts, stream: currentDetail.postStream.stream),
+        postStream: PostStream(posts: mergedPosts, stream: mergedStream),
       ));
 
       // 返回目标帖子的索引

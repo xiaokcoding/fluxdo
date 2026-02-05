@@ -594,6 +594,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       final shouldFallback = detail != null && _shouldFallbackFilter(detail, wasSummaryMode, wasAuthorOnlyMode);
       if (!hasTarget || shouldFallback) {
         _visibilityTracker.reset();
+        // 重新准备跳转状态，因为之前的 markInitialScrolled 已经执行过了
+        _scrollController.prepareJumpToPost(postNumber);
         await notifier.cancelFilterAndReloadWithPostNumber(postNumber);
       }
     } finally {
