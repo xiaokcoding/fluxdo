@@ -150,7 +150,7 @@ class NetworkSettingsService {
       preferIPv6: preferIPv6,
     );
     await _applyProxyState();
-    _touch(); // 确保初始化完成后触发 HttpClient 重建
+    _touch();
   }
 
   Future<void> setDohEnabled(bool enabled) async {
@@ -163,7 +163,7 @@ class NetworkSettingsService {
     }
     await prefs.setBool(_dohEnabledKey, enabled);
     await _applyProxyState();
-    _touch(); // 在代理启动完成后触发，确保 proxyPort 已更新
+    _touch();
   }
 
   Future<void> setSelectedServer(String url) async {
@@ -221,6 +221,7 @@ class NetworkSettingsService {
     _scheduleApplyProxyState();
     _touch();
   }
+
 
   Future<void> _applyProxyState() async {
     final startedAt = DateTime.now();

@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../markdown_editor/markdown_editor.dart';
 import '../../models/topic.dart';
+import '../../models/draft.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/presence_service.dart';
 import '../../services/emoji_handler.dart';
+import '../../services/draft_controller.dart';
 import '../common/smart_avatar.dart';
 
 /// 显示回复底部弹框
@@ -13,6 +15,7 @@ import '../common/smart_avatar.dart';
 /// [categoryId] 分类 ID（可选，用于用户搜索）
 /// [replyToPost] 可选，被回复的帖子
 /// [targetUsername] 可选，私信目标用户名 (创建私信时必需)
+/// [preloadedDraftFuture] 预加载的草稿 Future（在点击回复按钮时就发起请求）
 /// 返回创建的 Post 对象，取消或失败返回 null
 Future<Post?> showReplySheet({
   required BuildContext context,
@@ -20,6 +23,7 @@ Future<Post?> showReplySheet({
   int? categoryId,
   Post? replyToPost,
   String? targetUsername,
+  Future<Draft?>? preloadedDraftFuture,
 }) async {
   final result = await showModalBottomSheet<Post?>(
     context: context,
@@ -31,6 +35,7 @@ Future<Post?> showReplySheet({
       categoryId: categoryId,
       replyToPost: replyToPost,
       targetUsername: targetUsername,
+      preloadedDraftFuture: preloadedDraftFuture,
     ),
   );
   return result;
@@ -67,6 +72,7 @@ class ReplySheet extends ConsumerStatefulWidget {
   final Post? replyToPost;
   final String? targetUsername;
   final Post? editPost; // 编辑模式：要编辑的帖子
+  final Future<Draft?>? preloadedDraftFuture; // 预加载的草稿
 
   const ReplySheet({
     super.key,
@@ -75,6 +81,7 @@ class ReplySheet extends ConsumerStatefulWidget {
     this.replyToPost,
     this.targetUsername,
     this.editPost,
+    this.preloadedDraftFuture,
   });
 
   @override
@@ -90,9 +97,13 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
   bool _isSubmitting = false;
   bool _showEmojiPanel = false;
   bool _isLoadingRaw = false; // 编辑模式：加载原始内容中
+  bool _isLoadingDraft = false; // 加载草稿中
 
   // 表情面板高度
   static const double _emojiPanelHeight = 280.0;
+
+  // 草稿控制器（仅在回复话题或创建私信时使用，编辑模式不使用）
+  DraftController? _draftController;
 
   // Presence 服务（正在输入状态）
   PresenceService? _presenceService;
@@ -108,6 +119,9 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
     // 编辑模式：加载帖子原始内容
     if (_isEditMode) {
       _loadPostRaw();
+    } else {
+      // 非编辑模式：初始化草稿控制器并加载草稿
+      _initDraftController();
     }
 
     // 初始化 Presence 服务（非私信模式、非编辑模式）
@@ -116,12 +130,121 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
       _presenceService!.enterReplyChannel(widget.topicId!);
     }
 
+    // 添加内容变化监听以触发草稿自动保存
+    _contentController.addListener(_onContentChanged);
+    _titleController.addListener(_onContentChanged);
+
     // 自动聚焦（非编辑模式时立即聚焦，编辑模式在加载完成后聚焦）
     if (!_isEditMode) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _contentFocusNode.requestFocus();
+        if (!_isLoadingDraft) {
+          _contentFocusNode.requestFocus();
+        }
       });
     }
+  }
+
+  /// 初始化草稿控制器
+  void _initDraftController() {
+    String draftKey;
+    if (_isPrivateMessage) {
+      draftKey = Draft.newPrivateMessageKey;
+    } else if (widget.topicId != null) {
+      // 区分回复话题和回复帖子
+      draftKey = Draft.replyKey(
+        widget.topicId!,
+        replyToPostNumber: widget.replyToPost?.postNumber,
+      );
+    } else {
+      return;
+    }
+
+    _draftController = DraftController(draftKey: draftKey);
+    _loadExistingDraft();
+  }
+
+  /// 加载现有草稿
+  Future<void> _loadExistingDraft() async {
+    setState(() => _isLoadingDraft = true);
+    try {
+      Draft? draft;
+      if (widget.preloadedDraftFuture != null) {
+        // 使用预加载的草稿（在点击回复按钮时就已发起请求）
+        draft = await widget.preloadedDraftFuture;
+        if (draft != null) {
+          // 同步 DraftController 的序列号等状态
+          _draftController?.syncFromPreloadedDraft(draft);
+        }
+      } else {
+        // 没有预加载，正常加载
+        draft = await _draftController?.loadDraft();
+      }
+      if (!mounted) return;
+
+      if (draft != null && draft.hasContent) {
+        // 回复模式直接恢复，不需要确认
+        _restoreDraft(draft);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingDraft = false);
+        _contentFocusNode.requestFocus();
+      }
+    }
+  }
+
+  /// 舍弃草稿
+  Future<void> _discardDraft() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('放弃帖子'),
+        content: const Text('你想放弃你的帖子吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('舍弃'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await _draftController?.deleteDraft();
+      if (mounted) Navigator.of(context).pop();
+    }
+  }
+
+  /// 恢复草稿内容
+  void _restoreDraft(Draft draft) {
+    if (draft.data.reply != null) {
+      _contentController.text = draft.data.reply!;
+    }
+    if (_isPrivateMessage && draft.data.title != null) {
+      _titleController.text = draft.data.title!;
+    }
+  }
+
+  /// 内容变化时触发草稿保存
+  void _onContentChanged() {
+    if (_isEditMode || _draftController == null) return;
+
+    final data = DraftData(
+      reply: _contentController.text,
+      title: _isPrivateMessage ? _titleController.text : null,
+      action: _isPrivateMessage ? 'privateMessage' : 'reply',
+      replyToPostNumber: widget.replyToPost?.postNumber,
+      recipients: _isPrivateMessage && widget.targetUsername != null
+          ? [widget.targetUsername!]
+          : null,
+      archetypeId: _isPrivateMessage ? 'private_message' : 'regular',
+    );
+
+    _draftController!.scheduleSave(data);
   }
 
   /// 加载帖子原始内容
@@ -150,9 +273,30 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
 
   @override
   void dispose() {
+    // 移除监听器
+    _contentController.removeListener(_onContentChanged);
+    _titleController.removeListener(_onContentChanged);
+
+    // 关闭时立即保存草稿（如果有内容）
+    if (_draftController != null && _contentController.text.trim().isNotEmpty) {
+      final data = DraftData(
+        reply: _contentController.text,
+        title: _isPrivateMessage ? _titleController.text : null,
+        action: _isPrivateMessage ? 'privateMessage' : 'reply',
+        replyToPostNumber: widget.replyToPost?.postNumber,
+        recipients: _isPrivateMessage && widget.targetUsername != null
+            ? [widget.targetUsername!]
+            : null,
+        archetypeId: _isPrivateMessage ? 'private_message' : 'regular',
+      );
+      // 异步保存，不阻塞 dispose
+      _draftController!.saveNow(data);
+    }
+    _draftController?.dispose();
+
     // 释放 Presence 服务（会自动离开频道）
     _presenceService?.dispose();
-    
+
     _titleController.dispose();
     _contentController.dispose();
     _contentFocusNode.dispose();
@@ -204,6 +348,8 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
           title: _titleController.text.trim(),
           raw: content,
         );
+        // 发送成功后删除草稿
+        await _draftController?.deleteDraft();
         if (!mounted) return;
         Navigator.of(context).pop(null); // 私信模式不返回 Post
       } else {
@@ -213,6 +359,8 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
           raw: content,
           replyToPostNumber: widget.replyToPost?.postNumber,
         );
+        // 发送成功后删除草稿
+        await _draftController?.deleteDraft();
         if (!mounted) return;
         Navigator.of(context).pop(newPost);
       }
@@ -220,6 +368,37 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
       // 错误已由 ErrorInterceptor 处理
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  /// 构建草稿保存状态指示器
+  Widget _buildDraftStatusIndicator(DraftSaveStatus status, ThemeData theme) {
+    switch (status) {
+      case DraftSaveStatus.idle:
+        return const SizedBox.shrink();
+      case DraftSaveStatus.pending:
+        return const SizedBox.shrink();
+      case DraftSaveStatus.saving:
+        return SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: theme.colorScheme.outline,
+          ),
+        );
+      case DraftSaveStatus.saved:
+        return Icon(
+          Icons.cloud_done_outlined,
+          size: 16,
+          color: theme.colorScheme.outline,
+        );
+      case DraftSaveStatus.error:
+        return Icon(
+          Icons.cloud_off_outlined,
+          size: 16,
+          color: theme.colorScheme.error,
+        );
     }
   }
 
@@ -325,6 +504,23 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
 
                             if (!_isPrivateMessage && !_isEditMode && widget.replyToPost == null)
                               const Spacer(),
+
+                            // 草稿保存状态指示器
+                            if (_draftController != null) ...[
+                              ValueListenableBuilder<DraftSaveStatus>(
+                                valueListenable: _draftController!.statusNotifier,
+                                builder: (context, status, _) {
+                                  return _buildDraftStatusIndicator(status, theme);
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              // 舍弃按钮
+                              TextButton(
+                                onPressed: _isSubmitting ? null : _discardDraft,
+                                child: const Text('舍弃'),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
 
                             // 发送/保存按钮
                             FilledButton(

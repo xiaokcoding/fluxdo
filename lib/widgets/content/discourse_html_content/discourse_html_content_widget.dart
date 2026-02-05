@@ -24,6 +24,7 @@ import 'builders/footnote_builder.dart';
 import 'builders/poll_builder.dart';
 import 'builders/math_builder.dart';
 import 'builders/chat_transcript_builder.dart';
+import 'builders/iframe_builder.dart';
 
 /// Discourse HTML 内容渲染 Widget
 /// 封装了所有自定义渲染逻辑
@@ -341,6 +342,13 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
 
   Widget? _buildCustomWidget(BuildContext context, dynamic element) {
     final theme = Theme.of(context);
+
+    // 处理 iframe：统一使用 InAppWebView 渲染
+    // flutter_widget_from_html 的实现全屏退出后高度异常
+    if (element.localName == 'iframe') {
+      final iframe = buildIframe(context: context, element: element);
+      if (iframe != null) return iframe;
+    }
 
     // 屏蔽 Discourse Lightbox 的元数据区域和图标
     if (element.classes.contains('meta') ||

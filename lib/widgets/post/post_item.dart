@@ -9,6 +9,7 @@ import '../../models/topic.dart';
 import '../../pages/topic_detail_page/topic_detail_page.dart';
 import '../../pages/user_profile_page.dart';
 import '../../providers/discourse_providers.dart';
+import '../../providers/preferences_provider.dart';
 import '../../services/preloaded_data_service.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/discourse_cache_manager.dart';
@@ -1086,6 +1087,8 @@ class _PostItemState extends ConsumerState<PostItem> {
                       html: post.cooked,
                       textStyle: theme.textTheme.bodyMedium?.copyWith(
                         height: 1.5,
+                        fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) *
+                            ref.watch(preferencesProvider).contentFontScale,
                       ),
                       linkCounts: post.linkCounts,
                       mentionedUsers: post.mentionedUsers,

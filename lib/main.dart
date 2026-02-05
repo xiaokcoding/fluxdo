@@ -17,6 +17,7 @@ import 'services/local_notification_service.dart';
 import 'services/toast_service.dart';
 import 'services/preloaded_data_service.dart';
 import 'services/network/doh/network_settings_service.dart';
+import 'services/network/proxy/proxy_settings_service.dart';
 import 'services/network/doh_proxy/proxy_certificate.dart';
 import 'services/cf_challenge_logger.dart';
 import 'services/update_service.dart';
@@ -56,6 +57,9 @@ Future<void> main() async {
 
   // 初始化网络设置（DoH/代理）
   await NetworkSettingsService.instance.initialize(prefs);
+
+  // 初始化 HTTP 代理设置
+  await ProxySettingsService.instance.initialize(prefs);
 
   // 初始化 CookieJar（持久化 Cookie 管理）
   await CookieJarService().initialize();

@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_toolbar.dart';
 import 'package:fluxdo/models/category.dart';
+import 'package:fluxdo/models/draft.dart';
 
 import 'package:fluxdo/providers/discourse_providers.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
 import 'package:fluxdo/services/emoji_handler.dart';
+import 'package:fluxdo/services/draft_controller.dart';
 import 'package:fluxdo/widgets/topic/topic_filter_sheet.dart';
 import 'package:fluxdo/services/preloaded_data_service.dart';
 import 'package:fluxdo/providers/preferences_provider.dart';
@@ -36,9 +38,14 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   bool _isSubmitting = false;
   bool _showPreview = false;
   String? _templateContent;
+  // ignore: unused_field
+  bool _isLoadingDraft = false;
 
   final PageController _pageController = PageController();
   int _contentLength = 0;
+
+  // 草稿控制器
+  late final DraftController _draftController;
 
   @override
   void initState() {
@@ -47,8 +54,138 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     _contentController.addListener(_handleContentTextChange);
     // 初始化 EmojiHandler 以支持预览
     EmojiHandler().init();
+
+    // 初始化草稿控制器
+    _draftController = DraftController(draftKey: Draft.newTopicKey);
+
+    // 添加草稿自动保存监听
+    _titleController.addListener(_onDraftContentChanged);
+    _contentController.addListener(_onDraftContentChanged);
+
+    // 加载现有草稿
+    _loadExistingDraft();
+
     // 从当前筛选条件自动填入分类和标签
     WidgetsBinding.instance.addPostFrameCallback((_) => _applyCurrentFilter());
+  }
+
+  /// 加载现有草稿
+  Future<void> _loadExistingDraft() async {
+    setState(() => _isLoadingDraft = true);
+    try {
+      final draft = await _draftController.loadDraft();
+      if (!mounted) return;
+
+      if (draft != null && draft.hasContent) {
+        // 弹出恢复草稿对话框
+        final restore = await _showRestoreDraftDialog();
+        if (restore == true && mounted) {
+          _restoreDraft(draft);
+        } else if (restore == false && mounted) {
+          // 用户选择丢弃，删除草稿
+          await _draftController.deleteDraft();
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingDraft = false);
+      }
+    }
+  }
+
+  /// 显示恢复草稿对话框
+  Future<bool?> _showRestoreDraftDialog() async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('恢复草稿'),
+        content: const Text('检测到未发送的草稿，是否恢复？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('丢弃'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('恢复'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 恢复草稿内容
+  void _restoreDraft(Draft draft) {
+    if (draft.data.title != null) {
+      _titleController.text = draft.data.title!;
+    }
+    if (draft.data.reply != null) {
+      _contentController.text = draft.data.reply!;
+      _templateContent = null; // 恢复草稿后清除模板标记
+    }
+    if (draft.data.tags != null && draft.data.tags!.isNotEmpty) {
+      setState(() => _selectedTags = List.from(draft.data.tags!));
+    }
+    // 分类需要在 categories 加载后设置，通过 _applyCurrentFilter 中处理
+    if (draft.data.categoryId != null) {
+      // 监听 categories 加载完成后设置分类
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreCategoryFromDraft(draft.data.categoryId!);
+      });
+    }
+  }
+
+  /// 从草稿恢复分类
+  void _restoreCategoryFromDraft(int categoryId) {
+    ref.listenManual(categoriesProvider, (previous, next) {
+      next.whenData((categories) {
+        if (!mounted) return;
+        final category = categories.where((c) => c.id == categoryId).firstOrNull;
+        if (category != null && category.canCreateTopic) {
+          setState(() => _selectedCategory = category);
+        }
+      });
+    }, fireImmediately: true);
+  }
+
+  /// 草稿内容变化时触发保存
+  void _onDraftContentChanged() {
+    final data = DraftData(
+      title: _titleController.text,
+      reply: _contentController.text,
+      categoryId: _selectedCategory?.id,
+      tags: _selectedTags.isNotEmpty ? _selectedTags : null,
+      action: 'createTopic',
+      archetypeId: 'regular',
+    );
+    _draftController.scheduleSave(data);
+  }
+
+  /// 舍弃草稿
+  Future<void> _discardDraft() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('放弃帖子'),
+        content: const Text('你想放弃你的帖子吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('舍弃'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await _draftController.deleteDraft();
+      if (mounted) Navigator.of(context).pop();
+    }
   }
 
   void _applyCurrentFilter() async {
@@ -77,6 +214,24 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
   @override
   void dispose() {
+    // 移除草稿监听器
+    _titleController.removeListener(_onDraftContentChanged);
+    _contentController.removeListener(_onDraftContentChanged);
+
+    // 关闭时立即保存草稿（如果有内容）
+    if (_titleController.text.trim().isNotEmpty || _contentController.text.trim().isNotEmpty) {
+      final data = DraftData(
+        title: _titleController.text,
+        reply: _contentController.text,
+        categoryId: _selectedCategory?.id,
+        tags: _selectedTags.isNotEmpty ? _selectedTags : null,
+        action: 'createTopic',
+        archetypeId: 'regular',
+      );
+      _draftController.saveNow(data);
+    }
+    _draftController.dispose();
+
     _pageController.dispose();
     _contentController.removeListener(_updateContentLength);
     _contentController.removeListener(_handleContentTextChange);
@@ -124,6 +279,15 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
         _templateContent = null;
       }
     }
+
+    // 触发草稿保存
+    _onDraftContentChanged();
+  }
+
+  /// 标签变化时触发草稿保存
+  void _onTagsChanged(List<String> newTags) {
+    setState(() => _selectedTags = newTags);
+    _onDraftContentChanged();
   }
 
   void _togglePreview() {
@@ -186,12 +350,45 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
         tags: _selectedTags.isNotEmpty ? _selectedTags : null,
       );
 
+      // 发送成功后删除草稿
+      await _draftController.deleteDraft();
+
       if (!mounted) return;
       Navigator.of(context).pop(topicId);
     } catch (_) {
       // 错误已由 ErrorInterceptor 处理
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  /// 构建草稿保存状态指示器
+  Widget _buildDraftStatusIndicator(DraftSaveStatus status, ThemeData theme) {
+    switch (status) {
+      case DraftSaveStatus.idle:
+      case DraftSaveStatus.pending:
+        return const SizedBox.shrink();
+      case DraftSaveStatus.saving:
+        return SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: theme.colorScheme.outline,
+          ),
+        );
+      case DraftSaveStatus.saved:
+        return Icon(
+          Icons.cloud_done_outlined,
+          size: 18,
+          color: theme.colorScheme.outline,
+        );
+      case DraftSaveStatus.error:
+        return Icon(
+          Icons.cloud_off_outlined,
+          size: 18,
+          color: theme.colorScheme.error,
+        );
     }
   }
 
@@ -220,6 +417,19 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
           title: const Text('创建话题'),
           scrolledUnderElevation: 0,
           actions: [
+            // 草稿保存状态指示器
+            ValueListenableBuilder<DraftSaveStatus>(
+              valueListenable: _draftController.statusNotifier,
+              builder: (context, status, _) {
+                return _buildDraftStatusIndicator(status, theme);
+              },
+            ),
+            // 舍弃按钮
+            TextButton(
+              onPressed: _isSubmitting ? null : _discardDraft,
+              child: const Text('舍弃'),
+            ),
+            const SizedBox(width: 8),
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: FilledButton(
@@ -310,7 +520,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                       selectedCategory: _selectedCategory,
                                       selectedTags: _selectedTags,
                                       allTags: tags,
-                                      onTagsChanged: (newTags) => setState(() => _selectedTags = newTags),
+                                      onTagsChanged: _onTagsChanged,
                                     ),
                                     loading: () => const SizedBox.shrink(),
                                     error: (e, s) => const SizedBox.shrink(),

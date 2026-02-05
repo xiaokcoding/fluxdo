@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'layout_lock.dart';
 
 /// 响应式布局断点
 class Breakpoints {
@@ -21,16 +22,25 @@ enum DeviceType { mobile, tablet, desktop }
 class Responsive {
   Responsive._();
 
+  static DeviceType? _lastDeviceType;
+
   /// 根据屏幕宽度获取设备类型
   static DeviceType getDeviceType(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    DeviceType computed;
     if (width < Breakpoints.mobile) {
-      return DeviceType.mobile;
+      computed = DeviceType.mobile;
     } else if (width < Breakpoints.tablet) {
-      return DeviceType.tablet;
+      computed = DeviceType.tablet;
     } else {
-      return DeviceType.desktop;
+      computed = DeviceType.desktop;
     }
+
+    if (LayoutLock.locked && _lastDeviceType != null) {
+      return _lastDeviceType!;
+    }
+    _lastDeviceType = computed;
+    return computed;
   }
 
   /// 是否为手机

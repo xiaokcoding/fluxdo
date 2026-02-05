@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'webview_login_page.dart';
-import 'network_settings_page.dart';
+import 'network_settings_page/network_settings_page.dart';
 
 class OnboardingPage extends StatefulWidget {
   final VoidCallback onComplete;

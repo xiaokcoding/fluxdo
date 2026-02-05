@@ -113,12 +113,12 @@ mixin _UsersMixin on _DiscourseServiceBase {
   }
 
   /// 获取用户回应列表
-  Future<UserReactionsResponse> getUserReactions(String username, {int? beforePostId}) async {
+  Future<UserReactionsResponse> getUserReactions(String username, {int? beforeReactionUserId}) async {
     final queryParams = <String, dynamic>{
       'username': username,
     };
-    if (beforePostId != null) {
-      queryParams['before_post_id'] = beforePostId;
+    if (beforeReactionUserId != null) {
+      queryParams['before_reaction_user_id'] = beforeReactionUserId;
     }
     final response = await _dio.get('/discourse-reactions/posts/reactions.json', queryParameters: queryParams);
     return UserReactionsResponse.fromJson(response.data);

@@ -6,13 +6,16 @@ import 'package:flutter/services.dart';
 
 import '../../network_logger.dart';
 import '../doh/network_settings_service.dart';
+import '../proxy/proxy_settings_service.dart';
 
 class NetworkHttpAdapter implements HttpClientAdapter {
-  NetworkHttpAdapter(this._settings);
+  NetworkHttpAdapter(this._settings, this._proxySettings);
 
   final NetworkSettingsService _settings;
+  final ProxySettingsService _proxySettings;
   HttpClient? _cachedClient;
   int _cachedVersion = -1;
+  int _cachedProxyVersion = -1;
   bool _closed = false;
   bool _cachedProxyCaEnabled = false;
   Uint8List? _proxyCaBytes;
@@ -150,13 +153,16 @@ class NetworkHttpAdapter implements HttpClientAdapter {
 
   HttpClient _configHttpClient(Duration? connectionTimeout) {
     final currentVersion = _settings.version;
+    final currentProxyVersion = _proxySettings.version;
     final proxyCaEnabled = _shouldTrustProxyCa();
     if (_cachedClient == null ||
         _cachedVersion != currentVersion ||
+        _cachedProxyVersion != currentProxyVersion ||
         _cachedProxyCaEnabled != proxyCaEnabled) {
       _cachedClient?.close(force: true);
       _cachedClient = _createHttpClient();
       _cachedVersion = currentVersion;
+      _cachedProxyVersion = currentProxyVersion;
       _cachedProxyCaEnabled = proxyCaEnabled;
     }
     connectionTimeout ??= Duration.zero;
@@ -172,11 +178,36 @@ class NetworkHttpAdapter implements HttpClientAdapter {
     final context = _buildSecurityContext();
     final client = HttpClient(context: context)
       ..idleTimeout = const Duration(seconds: 30);
-    final settings = _settings.current;
+    final dohSettings = _settings.current;
+    final proxySettings = _proxySettings.current;
 
-    // 使用代理端口（Rust 代理统一处理 DOH + ECH）
-    final proxyPort = settings.proxyPort;
-    if (settings.dohEnabled && proxyPort != null) {
+    // 优先使用用户设置的 HTTP 代理
+    if (proxySettings.isValid) {
+      final host = proxySettings.host;
+      final port = proxySettings.port;
+      final proxy = 'PROXY $host:$port';
+      client.findProxy = (_) => proxy;
+
+      // 添加代理认证
+      final username = proxySettings.username;
+      final password = proxySettings.password;
+      if (username != null &&
+          username.isNotEmpty &&
+          password != null &&
+          password.isNotEmpty) {
+        client.addProxyCredentials(
+          host,
+          port,
+          'Basic',
+          HttpClientBasicCredentials(username, password),
+        );
+      }
+      return client;
+    }
+
+    // 使用 DOH 代理端口（Rust 代理统一处理 DOH + ECH）
+    final proxyPort = dohSettings.proxyPort;
+    if (dohSettings.dohEnabled && proxyPort != null) {
       final proxy = 'PROXY 127.0.0.1:$proxyPort';
       client.findProxy = (_) => proxy;
     }

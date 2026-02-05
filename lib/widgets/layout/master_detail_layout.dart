@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/responsive.dart';
+import '../../utils/layout_lock.dart';
 
 /// Master-Detail 双栏布局
 /// 平板/桌面上显示双栏，手机上只显示 master 或 detail
@@ -46,7 +47,8 @@ class MasterDetailLayout extends StatelessWidget {
     double minDetailWidth = defaultMinDetailWidth,
   }) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    return screenWidth >= masterWidth + minDetailWidth && !Responsive.isMobile(context);
+    final computed = screenWidth >= masterWidth + minDetailWidth && !Responsive.isMobile(context);
+    return LayoutLock.resolveCanShowBoth(computed: computed);
   }
 
   /// 是否显示双栏布局

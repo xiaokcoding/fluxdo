@@ -1,13 +1,14 @@
 import 'dart:io';
 
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../pages/webview_page.dart';
 import '../providers/preferences_provider.dart';
+
+const _browserChannel = MethodChannel('com.github.lingyan000.fluxdo/browser');
 
 Future<void> launchExternalLink(BuildContext context, String url) async {
   if (url.isEmpty) return;
@@ -30,7 +31,7 @@ Future<void> launchExternalLink(BuildContext context, String url) async {
 
 /// 强制在外部浏览器打开链接，绕过 App Links
 ///
-/// 在 Android 上使用 CATEGORY_APP_BROWSER 类别直接打开默认浏览器，
+/// 在 Android 上通过原生代码排除自己的应用，直接用外部浏览器打开，
 /// 避免被应用的 intent-filter 拦截导致链接又回到应用本身。
 Future<bool> launchInExternalBrowser(String url) async {
   final uri = Uri.tryParse(url);
@@ -38,14 +39,11 @@ Future<bool> launchInExternalBrowser(String url) async {
 
   if (Platform.isAndroid) {
     try {
-      final intent = AndroidIntent(
-        action: 'android.intent.action.VIEW',
-        data: url,
-        category: 'android.intent.category.APP_BROWSER',
-        flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+      final result = await _browserChannel.invokeMethod<bool>(
+        'openInBrowser',
+        {'url': url},
       );
-      await intent.launch();
-      return true;
+      return result ?? false;
     } catch (e) {
       debugPrint('[LinkLauncher] Failed to launch browser: $e');
       // 回退到 url_launcher

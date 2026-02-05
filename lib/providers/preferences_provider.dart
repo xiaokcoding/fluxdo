@@ -8,12 +8,15 @@ class AppPreferences {
   final bool anonymousShare;
   final bool longPressPreview;
   final bool openExternalLinksInAppBrowser;
+  /// 内容字体缩放比例，范围 0.8 ~ 1.4，默认 1.0
+  final double contentFontScale;
 
   const AppPreferences({
     required this.autoPanguSpacing,
     required this.anonymousShare,
     required this.longPressPreview,
     required this.openExternalLinksInAppBrowser,
+    required this.contentFontScale,
   });
 
   AppPreferences copyWith({
@@ -21,6 +24,7 @@ class AppPreferences {
     bool? anonymousShare,
     bool? longPressPreview,
     bool? openExternalLinksInAppBrowser,
+    double? contentFontScale,
   }) {
     return AppPreferences(
       autoPanguSpacing: autoPanguSpacing ?? this.autoPanguSpacing,
@@ -28,6 +32,7 @@ class AppPreferences {
       longPressPreview: longPressPreview ?? this.longPressPreview,
       openExternalLinksInAppBrowser:
           openExternalLinksInAppBrowser ?? this.openExternalLinksInAppBrowser,
+      contentFontScale: contentFontScale ?? this.contentFontScale,
     );
   }
 }
@@ -38,6 +43,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _longPressPreviewKey = 'pref_long_press_preview';
   static const String _openExternalLinksInAppBrowserKey =
       'pref_open_external_links_in_app_browser';
+  static const String _contentFontScaleKey = 'pref_content_font_scale';
 
   PreferencesNotifier(this._prefs)
       : super(
@@ -47,6 +53,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
             longPressPreview: _prefs.getBool(_longPressPreviewKey) ?? true,
             openExternalLinksInAppBrowser:
                 _prefs.getBool(_openExternalLinksInAppBrowserKey) ?? false,
+            contentFontScale: _prefs.getDouble(_contentFontScaleKey) ?? 1.0,
           ),
         );
 
@@ -70,6 +77,13 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   Future<void> setOpenExternalLinksInAppBrowser(bool enabled) async {
     state = state.copyWith(openExternalLinksInAppBrowser: enabled);
     await _prefs.setBool(_openExternalLinksInAppBrowserKey, enabled);
+  }
+
+  Future<void> setContentFontScale(double scale) async {
+    // 限制范围在 0.8 ~ 1.4
+    final clampedScale = scale.clamp(0.8, 1.4);
+    state = state.copyWith(contentFontScale: clampedScale);
+    await _prefs.setDouble(_contentFontScaleKey, clampedScale);
   }
 }
 

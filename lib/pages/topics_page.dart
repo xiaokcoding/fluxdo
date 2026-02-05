@@ -196,7 +196,10 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => TopicDetailPage(topicId: id),
+                    builder: (_) => TopicDetailPage(
+                      topicId: id,
+                      autoSwitchToMasterDetail: true,
+                    ),
                   ),
                 );
               }
@@ -420,6 +423,7 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
           topicId: topic.id,
           initialTitle: topic.title,
           scrollToPostNumber: topic.lastReadPostNumber,
+          autoSwitchToMasterDetail: true,
         ),
       ),
     );

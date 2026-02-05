@@ -433,17 +433,16 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
   }
 
   Future<void> _loadReactions({bool loadMore = false}) async {
-    // 如果已有数据且正在加载，跳过（防止重复加载更多）
     if (_reactionsLoading && _reactionsCache != null) return;
 
     setState(() => _reactionsLoading = true);
 
     try {
       final service = ref.read(discourseServiceProvider);
-      final beforePostId = loadMore && _reactionsCache != null && _reactionsCache!.isNotEmpty
-          ? _reactionsCache!.last.postId
+      final beforeId = loadMore && _reactionsCache != null && _reactionsCache!.isNotEmpty
+          ? _reactionsCache!.last.id
           : null;
-      final response = await service.getUserReactions(widget.username, beforePostId: beforePostId);
+      final response = await service.getUserReactions(widget.username, beforeReactionUserId: beforeId);
 
       if (mounted) {
         setState(() {

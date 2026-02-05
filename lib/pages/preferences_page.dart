@@ -80,6 +80,92 @@ class PreferencesPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
+          _buildSectionHeader(theme, '阅读'),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            color: theme.colorScheme.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
+            ),
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.format_size_rounded,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('内容字体大小'),
+                            Text(
+                              '${(preferences.contentFontScale * 100).round()}%',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: preferences.contentFontScale != 1.0
+                            ? () => ref.read(preferencesProvider.notifier).setContentFontScale(1.0)
+                            : null,
+                        child: const Text('重置'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 4,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    ),
+                    child: Slider(
+                      value: preferences.contentFontScale,
+                      min: 0.8,
+                      max: 1.4,
+                      divisions: 12,
+                      label: '${(preferences.contentFontScale * 100).round()}%',
+                      onChanged: (value) {
+                        ref.read(preferencesProvider.notifier).setContentFontScale(value);
+                      },
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '小',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        '大',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
           _buildSectionHeader(theme, '编辑器'),
           const SizedBox(height: 12),
           Card(
