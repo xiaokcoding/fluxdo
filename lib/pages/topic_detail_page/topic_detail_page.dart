@@ -41,6 +41,7 @@ class TopicDetailPage extends ConsumerStatefulWidget {
   final String? initialTitle;
   final int? scrollToPostNumber; // 外部控制的跳转位置（如从通知跳转到指定楼层）
   final bool embeddedMode; // 嵌入模式（双栏布局中使用，不显示返回按钮）
+  final bool autoSwitchToMasterDetail; // 仅在从首页进入时允许自动切换
   final bool autoOpenReply; // 自动打开回复框（从草稿进入时使用）
   final int? autoReplyToPostNumber; // 自动回复的帖子编号（从草稿进入时使用）
 
@@ -50,6 +51,7 @@ class TopicDetailPage extends ConsumerStatefulWidget {
     this.initialTitle,
     this.scrollToPostNumber,
     this.embeddedMode = false,
+    this.autoSwitchToMasterDetail = false,
     this.autoOpenReply = false,
     this.autoReplyToPostNumber,
   });
@@ -219,32 +221,45 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       return;
     }
 
-    final previous = _lastCanShowDetailPane;
-    _lastCanShowDetailPane = canShowDetailPane;
-
-    if (_isAutoSwitching || previous == null || previous == canShowDetailPane) {
+    if (!widget.autoSwitchToMasterDetail) {
+      _lastCanShowDetailPane = canShowDetailPane;
       return;
     }
 
-    if (!previous && canShowDetailPane) {
-      _isAutoSwitching = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final navigator = Navigator.of(context);
-        if (!navigator.canPop()) {
-          _isAutoSwitching = false;
-          return;
-        }
+    final previous = _lastCanShowDetailPane;
+    _lastCanShowDetailPane = canShowDetailPane;
 
-        final currentPostNumber = _controller.currentPostNumber ?? widget.scrollToPostNumber;
-        ref.read(selectedTopicProvider.notifier).select(
-          topicId: widget.topicId,
-          initialTitle: detail?.title ?? widget.initialTitle,
-          scrollToPostNumber: currentPostNumber,
-        );
-        navigator.pop();
-      });
+    if (_isAutoSwitching) return;
+    if (previous == null) {
+      if (canShowDetailPane) {
+        _switchToMasterDetail(detail);
+      }
+      return;
     }
+    if (previous == canShowDetailPane) return;
+    if (!previous && canShowDetailPane) {
+      _switchToMasterDetail(detail);
+    }
+  }
+
+  void _switchToMasterDetail(TopicDetail? detail) {
+    _isAutoSwitching = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      if (!navigator.canPop()) {
+        _isAutoSwitching = false;
+        return;
+      }
+
+      final currentPostNumber = _controller.currentPostNumber ?? widget.scrollToPostNumber;
+      ref.read(selectedTopicProvider.notifier).select(
+        topicId: widget.topicId,
+        initialTitle: detail?.title ?? widget.initialTitle,
+        scrollToPostNumber: currentPostNumber,
+      );
+      navigator.pop();
+    });
   }
 
   /// 在大屏上为内容添加宽度约束

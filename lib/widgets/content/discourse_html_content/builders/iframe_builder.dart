@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../../../constants.dart';
+import '../../../../utils/layout_lock.dart';
 
 /// iframe 属性解析结果
 class IframeAttributes {
@@ -142,6 +143,18 @@ class IframeWidget extends StatefulWidget {
 class _IframeWidgetState extends State<IframeWidget> {
   bool _isLoaded = false;
   bool _hasError = false;
+  bool _didLockLayout = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _unlockLayoutIfNeeded();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -160,6 +173,12 @@ class _IframeWidgetState extends State<IframeWidget> {
               InAppWebView(
                 initialUrlRequest: URLRequest(url: WebUri(attrs.fullUrl)),
                 initialSettings: _buildSettings(attrs),
+                onEnterFullscreen: (controller) {
+                  _lockLayout();
+                },
+                onExitFullscreen: (controller) {
+                  _unlockLayoutIfNeeded();
+                },
                 onLoadStart: (controller, url) {
                   if (mounted) {
                     setState(() {
@@ -174,7 +193,9 @@ class _IframeWidgetState extends State<IframeWidget> {
                   }
                 },
                 onReceivedError: (controller, request, error) {
-                  if (mounted) {
+                  // 只有主框架加载失败才显示错误
+                  // 忽略子资源（JS、图片、视频海报等）的加载错误
+                  if (mounted && request.isForMainFrame == true) {
                     setState(() => _hasError = true);
                   }
                 },
@@ -242,5 +263,17 @@ class _IframeWidgetState extends State<IframeWidget> {
       // 引用策略
       preferredContentMode: UserPreferredContentMode.RECOMMENDED,
     );
+  }
+
+  void _lockLayout() {
+    if (_didLockLayout) return;
+    _didLockLayout = true;
+    LayoutLock.acquire();
+  }
+
+  void _unlockLayoutIfNeeded() {
+    if (!_didLockLayout) return;
+    _didLockLayout = false;
+    LayoutLock.release();
   }
 }

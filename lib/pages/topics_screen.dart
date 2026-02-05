@@ -24,15 +24,11 @@ class _TopicsScreenState extends ConsumerState<TopicsScreen> {
     final previous = _lastCanShowDetailPane;
     _lastCanShowDetailPane = canShowDetailPane;
 
-    if (_isAutoSwitching || previous == null || previous == canShowDetailPane) {
-      return;
-    }
+    if (_isAutoSwitching) return;
 
-    if (!previous && canShowDetailPane) {
-      return;
-    }
-
-    if (previous && !canShowDetailPane && selectedTopic.hasSelection) {
+    // 从双栏切到单栏时自动 push；如果 previous 为空但当前为单栏且有选中，
+    // 也执行 push，避免因状态丢失导致无法自动进入详情。
+    if (!canShowDetailPane && selectedTopic.hasSelection && (previous == null || previous == true)) {
       final route = ModalRoute.of(context);
       if (route != null && !route.isCurrent) {
         return;
@@ -53,6 +49,7 @@ class _TopicsScreenState extends ConsumerState<TopicsScreen> {
               topicId: topicId,
               initialTitle: selectedTopic.initialTitle,
               scrollToPostNumber: selectedTopic.scrollToPostNumber,
+              autoSwitchToMasterDetail: true,
             ),
           ),
         )
@@ -62,6 +59,7 @@ class _TopicsScreenState extends ConsumerState<TopicsScreen> {
           }
         });
       });
+      return;
     }
   }
 
