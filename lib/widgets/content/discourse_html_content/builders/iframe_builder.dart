@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../../../constants.dart';
 import '../../../../utils/layout_lock.dart';
+import '../../../../pages/webview_page.dart';
 
 /// 是否需要交互遮罩（macOS 上 WebView 会捕获滚动事件）
 bool get _needsInteractionMask => !kIsWeb && Platform.isMacOS;
@@ -20,6 +22,7 @@ class IframeAttributes {
   final String? referrerPolicy;
   final bool lazyLoad;
   final String? title;
+  final Set<String> classes;
 
   IframeAttributes({
     required this.src,
@@ -31,6 +34,7 @@ class IframeAttributes {
     this.referrerPolicy,
     this.lazyLoad = false,
     this.title,
+    this.classes = const {},
   });
 
   /// 从 HTML element 解析 iframe 属性
@@ -45,6 +49,10 @@ class IframeAttributes {
     // 宽高属性
     final width = double.tryParse(attrs['width'] as String? ?? '');
     final height = double.tryParse(attrs['height'] as String? ?? '');
+
+    // class 属性
+    final classAttr = attrs['class'] as String?;
+    final classes = classAttr?.split(RegExp(r'\s+')).toSet() ?? {};
 
     // sandbox 属性
     final sandboxAttr = attrs['sandbox'] as String?;
@@ -85,6 +93,7 @@ class IframeAttributes {
       referrerPolicy: referrerPolicy,
       lazyLoad: lazyLoad,
       title: title,
+      classes: classes,
     );
   }
 
@@ -94,16 +103,23 @@ class IframeAttributes {
   /// 是否允许自动播放
   bool get allowAutoplay => allow.any((p) => p.startsWith('autoplay'));
 
-  /// 是否允许加密媒体
-  bool get allowEncryptedMedia =>
-      allow.any((p) => p.startsWith('encrypted-media'));
-
   /// 计算宽高比
   double get aspectRatio {
+    // 视频 onebox 强制使用 16:9（遵循 Discourse CSS 规则）
+    if (classes.contains('youtube-onebox') ||
+        classes.contains('lazyYT') ||
+        classes.contains('vimeo-onebox') ||
+        classes.contains('loom-onebox')) {
+      return 16 / 9;
+    }
+
+    // 其他情况：如果有明确的宽高，使用计算值
     if (width != null && width! > 0 && height != null && height! > 0) {
       return width! / height!;
     }
-    return 16 / 9; // 默认 16:9
+
+    // 默认 16:9
+    return 16 / 9;
   }
 
   /// 获取完整 URL
@@ -222,21 +238,27 @@ class _IframeWidgetState extends State<IframeWidget> {
     final attrs = widget.attributes;
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: AspectRatio(
-        aspectRatio: attrs.aspectRatio,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Stack(
-            children: [
+    // 构建内容 Widget
+    Widget content = ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Stack(
+        children: [
               // WebView - 始终渲染
+              // 直接加载 URL，通过设置 Referer 头解决 origin 验证问题
               InAppWebView(
-                initialData: InAppWebViewInitialData(
-                  data: _buildHtml(attrs),
-                  baseUrl: WebUri(AppConstants.baseUrl),
+                initialUrlRequest: URLRequest(
+                  url: WebUri(attrs.fullUrl),
+                  headers: {
+                    'Referer': AppConstants.baseUrl,
+                  },
                 ),
                 initialSettings: _buildSettings(attrs),
+                // 允许 WebView 接收水平滑动手势
+                gestureRecognizers: {
+                  Factory<HorizontalDragGestureRecognizer>(
+                    () => HorizontalDragGestureRecognizer(),
+                  ),
+                },
                 onEnterFullscreen: (controller) {
                   _lockLayout();
                 },
@@ -251,10 +273,22 @@ class _IframeWidgetState extends State<IframeWidget> {
                     });
                   }
                 },
-                onLoadStop: (controller, url) {
+                onLoadStop: (controller, url) async {
                   if (mounted) {
                     setState(() => _isLoaded = true);
                   }
+                  // 注入 viewport meta 标签，确保内容正确缩放
+                  await controller.evaluateJavascript(source: '''
+                    (function() {
+                      var meta = document.querySelector('meta[name="viewport"]');
+                      if (!meta) {
+                        meta = document.createElement('meta');
+                        meta.name = 'viewport';
+                        document.head.appendChild(meta);
+                      }
+                      meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                    })();
+                  ''');
                 },
                 onReceivedError: (controller, request, error) {
                   // 只有主框架加载失败才显示错误
@@ -262,6 +296,24 @@ class _IframeWidgetState extends State<IframeWidget> {
                   if (mounted && request.isForMainFrame == true) {
                     setState(() => _hasError = true);
                   }
+                },
+                // 拦截用户点击的链接，使用 WebViewPage 打开
+                shouldOverrideUrlLoading: (controller, navigationAction) async {
+                  // 只拦截用户主动点击的链接
+                  if (navigationAction.navigationType != NavigationType.LINK_ACTIVATED) {
+                    return NavigationActionPolicy.ALLOW;
+                  }
+
+                  final url = navigationAction.request.url?.toString();
+                  if (url == null) {
+                    return NavigationActionPolicy.ALLOW;
+                  }
+
+                  // 使用 WebViewPage 打开
+                  if (mounted) {
+                    WebViewPage.open(context, url);
+                  }
+                  return NavigationActionPolicy.CANCEL;
                 },
               ),
               // 加载指示器
@@ -313,59 +365,34 @@ class _IframeWidgetState extends State<IframeWidget> {
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
-  }
 
-  /// 构建包装 iframe 的 HTML（解决 YouTube 等平台的 origin 问题）
-  String _buildHtml(IframeAttributes attrs) {
-    final src = attrs.fullUrl;
+    // 始终使用响应式宽高比布局，忽略固定像素尺寸
+    // 这样可以适配不同屏幕尺寸，避免在小屏幕上溢出或在大屏幕上显得太小
+    Widget sizedContent;
 
-    // 构建 allow 属性，默认添加常用权限
-    final allowAttrs = <String>{
-      'fullscreen',
-      'autoplay',
-      'encrypted-media',
-      'picture-in-picture',
-      'web-share',
-      ...attrs.allow,
-    };
-
-    final allowAttr = 'allow="${allowAttrs.join('; ')}"';
-
-    return '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
-    iframe {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-      overflow: hidden;
+    // 特殊情况：如果只有固定高度（没有宽度或宽度是百分比），使用固定高度
+    // 例如：width="100%" height="111"
+    if (attrs.height != null && attrs.height! > 0 && attrs.width == null) {
+      sizedContent = SizedBox(
+        width: double.infinity,
+        height: attrs.height,
+        child: content,
+      );
+    } else {
+      // 其他情况使用宽高比
+      sizedContent = AspectRatio(
+        aspectRatio: attrs.aspectRatio,
+        child: content,
+      );
     }
-  </style>
-</head>
-<body>
-  <iframe
-    src="$src"
-    $allowAttr
-    allowfullscreen
-    referrerpolicy="no-referrer-when-downgrade"
-  ></iframe>
-</body>
-</html>
-''';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: sizedContent,
+    );
   }
 
   InAppWebViewSettings _buildSettings(IframeAttributes attrs) {
@@ -373,15 +400,15 @@ class _IframeWidgetState extends State<IframeWidget> {
       // User-Agent
       userAgent: AppConstants.userAgent,
 
-      // JavaScript
-      javaScriptEnabled: true,
+      // JavaScript（根据 sandbox 属性决定）
+      javaScriptEnabled: attrs.allowScripts,
 
       // 媒体播放
       mediaPlaybackRequiresUserGesture: !attrs.allowAutoplay,
       allowsInlineMediaPlayback: true,
 
-      // 全屏
-      iframeAllowFullscreen: true,
+      // 全屏（根据 allowfullscreen 属性决定）
+      iframeAllowFullscreen: attrs.allowFullscreen,
 
       // 外观
       transparentBackground: true,
