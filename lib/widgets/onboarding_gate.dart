@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../pages/onboarding_page.dart';
 import '../providers/theme_provider.dart';
+import '../providers/app_state_refresher.dart';
 
 class OnboardingGate extends ConsumerStatefulWidget {
   final Widget child;
@@ -25,6 +26,8 @@ class _OnboardingGateState extends ConsumerState<OnboardingGate> {
   Future<void> _completeOnboarding() async {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setBool('onboarding_completed', true);
+    // 刷新所有状态，确保登录后数据正确加载
+    AppStateRefresher.refreshAll(ref);
     setState(() => _hasCompletedOnboarding = true);
   }
 
