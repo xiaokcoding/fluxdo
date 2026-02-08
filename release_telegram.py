@@ -5,6 +5,13 @@ from pathlib import Path
 import requests
 
 
+def escape_markdown(text: str) -> str:
+    """转义 Telegram Markdown 特殊字符"""
+    for char in ["_", "*", "`", "["]:
+        text = text.replace(char, "\\" + char)
+    return text
+
+
 def main() -> int:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
@@ -64,7 +71,7 @@ def main() -> int:
         )
         files[key] = file_path.open("rb")
 
-    media[-1]["caption"] = text
+    media[-1]["caption"] = escape_markdown(text)
     media[-1]["parse_mode"] = "Markdown"
 
     response = requests.post(
