@@ -3,6 +3,128 @@ import '../../../constants.dart';
 import '../../../pages/image_viewer_page.dart';
 import '../../../services/discourse/discourse_service.dart';
 
+/// 画廊信息类
+/// 同时保存缩略图 URL（用于匹配）和原图 URL（用于显示）
+class GalleryInfo {
+  /// 原图 URL 列表（用于画廊显示）
+  final List<String> originalUrls;
+  
+  /// 缩略图 URL 到索引的映射（用于快速查找）
+  final Map<String, int> _thumbnailToIndex;
+
+  GalleryInfo._({
+    required this.originalUrls,
+    required Map<String, int> thumbnailToIndex,
+  }) : _thumbnailToIndex = thumbnailToIndex;
+
+  /// 从 HTML 提取画廊信息
+  static GalleryInfo fromHtml(String html) {
+    final List<String> originalUrls = [];
+    final Map<String, int> thumbnailToIndex = {};
+    
+    final imgTagRegExp = RegExp(r'<img[^>]+>', caseSensitive: false);
+    final srcRegExp = RegExp(r'''src\s*=\s*["']?([^"'\s>]+)["']?''', caseSensitive: false);
+    final excludeClassRegExp = RegExp(
+      r'''class\s*=\s*["'][^"']*(emoji|avatar|site-icon|favicon)[^"']*["']''',
+      caseSensitive: false,
+    );
+
+    final matches = imgTagRegExp.allMatches(html);
+    for (final match in matches) {
+      final imgTag = match.group(0) ?? "";
+      if (excludeClassRegExp.hasMatch(imgTag)) continue;
+
+      final srcMatch = srcRegExp.firstMatch(imgTag);
+      var src = srcMatch?.group(1);
+      if (src == null) continue;
+      if (src.contains('/favicon') || src.contains('favicon.')) continue;
+      if (src.startsWith('upload://')) continue;
+
+      // 将相对路径转换为绝对路径
+      if (src.startsWith('/') && !src.startsWith('//')) {
+        src = '${AppConstants.baseUrl}$src';
+      }
+
+      final thumbnailUrl = src;
+      final originalUrl = DiscourseImageUtils.getOriginalUrl(src);
+      
+      final index = originalUrls.length;
+      originalUrls.add(originalUrl);
+      thumbnailToIndex[thumbnailUrl] = index;
+      // 也用原图 URL 作为 key，方便匹配
+      thumbnailToIndex[originalUrl] = index;
+    }
+    
+    return GalleryInfo._(
+      originalUrls: originalUrls,
+      thumbnailToIndex: thumbnailToIndex,
+    );
+  }
+
+  /// 从外部传入的图片列表构建 GalleryInfo
+  static GalleryInfo fromImages(List<String> images) {
+    final Map<String, int> thumbnailToIndex = {};
+    
+    for (var i = 0; i < images.length; i++) {
+      final url = images[i];
+      thumbnailToIndex[url] = i;
+      // 同时添加原图 URL 作为 key
+      final originalUrl = DiscourseImageUtils.getOriginalUrl(url);
+      if (originalUrl != url) {
+        thumbnailToIndex[originalUrl] = i;
+      }
+    }
+    
+    return GalleryInfo._(
+      originalUrls: images,
+      thumbnailToIndex: thumbnailToIndex,
+    );
+  }
+
+  /// 根据任意格式的图片 URL 查找索引
+  /// 会尝试多种 URL 变体匹配
+  int? findIndex(String imageUrl) {
+    // 1. 直接查找
+    if (_thumbnailToIndex.containsKey(imageUrl)) {
+      return _thumbnailToIndex[imageUrl];
+    }
+    
+    // 2. 尝试 resolveUrl 后查找（处理相对路径）
+    final resolvedUrl = DiscourseImageUtils.resolveUrl(imageUrl);
+    if (_thumbnailToIndex.containsKey(resolvedUrl)) {
+      return _thumbnailToIndex[resolvedUrl];
+    }
+    
+    // 3. 尝试转换为原图 URL 后查找
+    final originalUrl = DiscourseImageUtils.getOriginalUrl(imageUrl);
+    if (_thumbnailToIndex.containsKey(originalUrl)) {
+      return _thumbnailToIndex[originalUrl];
+    }
+    
+    // 4. resolvedUrl 转换为原图后查找
+    final resolvedOriginalUrl = DiscourseImageUtils.getOriginalUrl(resolvedUrl);
+    if (_thumbnailToIndex.containsKey(resolvedOriginalUrl)) {
+      return _thumbnailToIndex[resolvedOriginalUrl];
+    }
+    
+    return null;
+  }
+
+  /// 获取原图 URL 列表（用于传递给画廊查看器）
+  List<String> get images => originalUrls;
+  
+  /// 生成画廊 Hero tags
+  List<String> get heroTags => DiscourseImageUtils.generateGalleryHeroTags(originalUrls);
+  
+  /// 获取指定索引的原图 URL
+  String? getOriginalUrl(int index) {
+    if (index >= 0 && index < originalUrls.length) {
+      return originalUrls[index];
+    }
+    return null;
+  }
+}
+
 /// Discourse 图片工具类
 /// 集中处理图片 URL 转换、原图查找、查看器打开等通用逻辑
 class DiscourseImageUtils {

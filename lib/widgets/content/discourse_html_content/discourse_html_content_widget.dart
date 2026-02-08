@@ -29,6 +29,7 @@ import 'builders/image_grid_builder.dart';
 import 'builders/inline_spoiler_builder.dart';
 import 'builders/inline_decorator_builder.dart';
 import 'builders/mention_builder.dart';
+import 'image_utils.dart';
 
 /// Discourse HTML 内容渲染 Widget
 /// 封装了所有自定义渲染逻辑
@@ -77,7 +78,7 @@ class DiscourseHtmlContent extends ConsumerStatefulWidget {
 
 class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
   late final DiscourseWidgetFactory _widgetFactory;
-  late final List<String> _galleryImages;
+  late final GalleryInfo _galleryInfo;
   final Pangu _pangu = Pangu();
 
   /// 已揭示的内联 spoiler ID 集合
@@ -86,51 +87,21 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
   @override
   void initState() {
     super.initState();
-    // 优先使用外部传入的画廊图片列表，否则从自己的 html 提取
-    _galleryImages = widget.galleryImages ?? _extractGalleryImages(widget.html);
+    // 优先使用外部传入的画廊图片列表，否则从 HTML 提取
+    if (widget.galleryImages != null && widget.galleryImages!.isNotEmpty) {
+      // 从外部传入的画廊列表构建 GalleryInfo
+      _galleryInfo = GalleryInfo.fromImages(widget.galleryImages!);
+    } else {
+      // 从 HTML 提取画廊信息（包含缩略图到索引的映射）
+      _galleryInfo = GalleryInfo.fromHtml(widget.html);
+    }
     _widgetFactory = DiscourseWidgetFactory(
       context: context,
-      galleryImages: _galleryImages,
+      galleryInfo: _galleryInfo,
     );
   }
 
-  /// 提取画廊图片列表
-  List<String> _extractGalleryImages(String html) {
-    final List<String> galleryImages = [];
-    final imgTagRegExp = RegExp(r'<img[^>]+>', caseSensitive: false);
-    final srcRegExp = RegExp(r'''src\s*=\s*["']?([^"'\s>]+)["']?''', caseSensitive: false);
-    // 排除规则：emoji、头像、网站图标、favicon 等
-    final excludeClassRegExp = RegExp(
-      r'''class\s*=\s*["'][^"']*(emoji|avatar|site-icon|favicon)[^"']*["']''',
-      caseSensitive: false,
-    );
 
-    final matches = imgTagRegExp.allMatches(html);
-    for (final match in matches) {
-      final imgTag = match.group(0) ?? "";
-
-      // 排除特定 class 的图片
-      if (excludeClassRegExp.hasMatch(imgTag)) continue;
-
-      final srcMatch = srcRegExp.firstMatch(imgTag);
-      var src = srcMatch?.group(1);
-      if (src == null) continue;
-
-      // 排除 favicon 路径
-      if (src.contains('/favicon') || src.contains('favicon.')) continue;
-
-      // 排除 upload:// 短链接（这些会在渲染时动态解析）
-      if (src.startsWith('upload://')) continue;
-
-      // 将相对路径转换为绝对路径
-      if (src.startsWith('/') && !src.startsWith('//')) {
-        src = '${AppConstants.baseUrl}$src';
-      }
-
-      galleryImages.add(src);
-    }
-    return galleryImages;
-  }
 
   /// 预处理 HTML：注入用户状态 emoji、链接点击次数，添加内联元素 padding
   String _preprocessHtml(String html, bool enablePanguSpacing) {
@@ -471,7 +442,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         html: html,
         compact: true,
         textStyle: textStyle,
-        galleryImages: _galleryImages,
+        galleryImages: _galleryInfo.images,
         onInternalLinkTap: widget.onInternalLinkTap,
         post: widget.post,
         topicId: widget.topicId,
@@ -501,7 +472,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         context: context,
         theme: theme,
         element: element,
-        galleryImages: _galleryImages,
+        galleryInfo: _galleryInfo,
       );
     }
 
@@ -511,7 +482,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         context: context,
         theme: theme,
         element: element,
-        galleryImages: _galleryImages,
+        galleryImages: _galleryInfo.images,
       );
     }
 
@@ -611,7 +582,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         theme: theme,
         element: element,
         fullHtml: widget.fullHtml ?? widget.html,
-        galleryImages: _galleryImages,
+        galleryImages: _galleryInfo.images,
       );
       return InlineCustomWidget(child: footnoteRef);
     }

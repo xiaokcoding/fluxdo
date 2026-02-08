@@ -10,12 +10,14 @@ import 'lazy_image.dart';
 /// 自定义 WidgetFactory，仅用于接管图片渲染
 class DiscourseWidgetFactory extends WidgetFactory {
   final BuildContext context;
-  final List<String> galleryImages;
+  final GalleryInfo? galleryInfo;
 
+  /// 获取画廊图片列表（原图 URL）
+  List<String> get galleryImages => galleryInfo?.images ?? [];
 
   DiscourseWidgetFactory({
     required this.context,
-    this.galleryImages = const [],
+    this.galleryInfo,
   });
 
   @override

@@ -7,7 +7,7 @@ Widget? buildImageGrid({
   required BuildContext context,
   required ThemeData theme,
   required dynamic element,
-  required List<String> galleryImages,
+  required GalleryInfo galleryInfo,
 }) {
   // 解析列数，默认 2 列
   final dataColumns = element.attributes['data-columns'] as String?;
@@ -17,10 +17,9 @@ Widget? buildImageGrid({
   final images = _extractImages(element);
   if (images.isEmpty) return null;
 
-  // 构建网格内图片的原图列表（用于画廊浏览）
-  final gridOriginalImages = images.map((img) => img.fullSrc).toList();
-  final gridThumbnailImages = images.map((img) => img.src).toList();
-  final heroTags = DiscourseImageUtils.generateGalleryHeroTags(gridOriginalImages);
+  // 使用全局画廊信息
+  final galleryImages = galleryInfo.images;
+  final heroTags = galleryInfo.heroTags;
 
   // 计算间距（与 Discourse 一致）
   const double spacing = 6.0;
@@ -37,18 +36,26 @@ Widget? buildImageGrid({
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
-          children: images.asMap().entries.map((entry) {
-            final index = entry.key;
-            final imageData = entry.value;
+          children: images.map((imageData) {
+            // 使用 GalleryInfo.findIndex 查找全局索引
+            final globalIndex = galleryInfo.findIndex(imageData.src) 
+                ?? galleryInfo.findIndex(imageData.fullSrc)
+                ?? -1;
+            
+            // 生成 heroTag
+            final heroTag = globalIndex >= 0 && globalIndex < heroTags.length
+                ? heroTags[globalIndex]
+                : 'grid_${imageData.src.hashCode}';
+
             return _GridImageTile(
               theme: theme,
               imageData: imageData,
               columnWidth: columnWidth,
-              heroTag: heroTags[index],
-              gridOriginalImages: gridOriginalImages,
-              gridThumbnailImages: gridThumbnailImages,
+              heroTag: heroTag,
+              gridOriginalImages: galleryImages,
+              gridThumbnailImages: galleryImages,  // 原图列表
               heroTags: heroTags,
-              index: index,
+              index: globalIndex >= 0 ? globalIndex : 0,
             );
           }).toList(),
         );
@@ -225,11 +232,14 @@ class _GridImageTile extends StatelessWidget {
   }
 
   void _openViewer(BuildContext context, String resolvedFullUrl) {
-    // 使用解析后的 URL 更新画廊列表（只替换当前图片）
-    final resolvedGalleryImages = List<String>.from(gridOriginalImages);
-    final resolvedThumbnailImages = List<String>.from(gridThumbnailImages);
-    resolvedGalleryImages[index] = DiscourseImageUtils.getOriginalUrl(resolvedFullUrl);
-    resolvedThumbnailImages[index] = resolvedFullUrl;
+    // 确保所有画廊图片都使用原图 URL
+    final resolvedGalleryImages = gridOriginalImages
+        .map((url) => DiscourseImageUtils.getOriginalUrl(url))
+        .toList();
+    // 当前点击的图片使用解析后的 URL
+    if (index >= 0 && index < resolvedGalleryImages.length) {
+      resolvedGalleryImages[index] = DiscourseImageUtils.getOriginalUrl(resolvedFullUrl);
+    }
 
     DiscourseImageUtils.openViewer(
       context: context,
@@ -237,9 +247,9 @@ class _GridImageTile extends StatelessWidget {
       heroTag: heroTag,
       thumbnailUrl: resolvedFullUrl,
       galleryImages: resolvedGalleryImages,
-      thumbnailUrls: resolvedThumbnailImages,
+      thumbnailUrls: gridThumbnailImages,
       heroTags: heroTags,
-      initialIndex: index,
+      initialIndex: index >= 0 ? index : 0,
     );
   }
 
