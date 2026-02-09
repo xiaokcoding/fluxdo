@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../discourse_html_content_widget.dart';
+import 'scan_boundary.dart';
 
 /// 构建自定义 table widget
 Widget? buildTable({
@@ -44,50 +45,54 @@ Widget? buildTable({
   if (columnCount == 0) return null;
 
   // 构建 table widget
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant,
-          width: 1,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Table(
-          defaultColumnWidth: const IntrinsicColumnWidth(),
-          border: TableBorder(
-            horizontalInside: BorderSide(
-              color: theme.colorScheme.outlineVariant,
-              width: 1,
-            ),
-            verticalInside: BorderSide(
-              color: theme.colorScheme.outlineVariant,
-              width: 1,
-            ),
+  // 用 ScanBoundary 包裹，阻止外层 overlay 扫描进入表格
+  // 表格单元格内部的 DiscourseHtmlContent 有自己的 overlay 处理
+  return ScanBoundary(
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant,
+            width: 1,
           ),
-          children: rows.asMap().entries.map((entry) {
-            final rowIndex = entry.key;
-            final row = entry.value;
-            final isFirstRow = rowIndex == 0;
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Table(
+            defaultColumnWidth: const IntrinsicColumnWidth(),
+            border: TableBorder(
+              horizontalInside: BorderSide(
+                color: theme.colorScheme.outlineVariant,
+                width: 1,
+              ),
+              verticalInside: BorderSide(
+                color: theme.colorScheme.outlineVariant,
+                width: 1,
+              ),
+            ),
+            children: rows.asMap().entries.map((entry) {
+              final rowIndex = entry.key;
+              final row = entry.value;
+              final isFirstRow = rowIndex == 0;
 
-            return TableRow(
-              decoration: isFirstRow && row.any((c) => c.isHeader)
-                  ? BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                    )
-                  : null,
-              children: List.generate(columnCount, (colIndex) {
-                if (colIndex < row.length) {
-                  return _buildCell(context, theme, row[colIndex], galleryImages);
-                }
-                return const SizedBox.shrink();
-              }),
-            );
-          }).toList(),
+              return TableRow(
+                decoration: isFirstRow && row.any((c) => c.isHeader)
+                    ? BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                      )
+                    : null,
+                children: List.generate(columnCount, (colIndex) {
+                  if (colIndex < row.length) {
+                    return _buildCell(context, theme, row[colIndex], galleryImages);
+                  }
+                  return const SizedBox.shrink();
+                }),
+              );
+            }).toList(),
+          ),
         ),
       ),
     ),

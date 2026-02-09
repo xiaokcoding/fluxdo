@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'inline_decorator_builder.dart' show isCodeMarkerStyle;
+import 'scan_boundary.dart';
 import 'spoiler_particles.dart';
 
 /// 用于标记 spoiler 的特殊字体名称
@@ -68,21 +69,37 @@ class SpoilerOverlayState extends State<SpoilerOverlay>
         _scanForSpoilers();
         _hasScanned = true;
         _needsRescan = false;
+        // 扫描完成后，如果没有未揭示的 spoiler，停止 Ticker 节省性能
+        if (!_hasActiveSpoilers()) {
+          _ticker?.stop();
+        }
       }
+      return;
     }
 
-    if (dtMs > 0 && dtMs < 100 && _groups.isNotEmpty) {
-      bool needsRepaint = false;
+    // 检查是否还有未揭示的 spoiler 需要动画
+    if (!_hasActiveSpoilers()) {
+      _ticker?.stop();
+      return;
+    }
+
+    if (dtMs > 0 && dtMs < 100) {
       for (final group in _groups) {
         if (!group.isRevealed) {
           group.particleSystem.update(dtMs);
-          needsRepaint = true;
         }
       }
-      if (needsRepaint) {
-        setState(() {});
-      }
+      setState(() {});
     }
+  }
+
+  /// 检查是否有未揭示的 spoiler
+  bool _hasActiveSpoilers() {
+    if (_groups.isEmpty) return false;
+    for (final group in _groups) {
+      if (!group.isRevealed) return true;
+    }
+    return false;
   }
 
   @override
@@ -92,6 +109,10 @@ class SpoilerOverlayState extends State<SpoilerOverlay>
       // 标记需要重新扫描，但不清空旧数据，避免闪烁
       _needsRescan = true;
       _scanDelayCounter = 0;
+      // 重新启动 Ticker 以进行扫描
+      if (_ticker != null && !_ticker!.isActive) {
+        _ticker!.start();
+      }
     }
   }
 
@@ -126,6 +147,11 @@ class SpoilerOverlayState extends State<SpoilerOverlay>
   }
 
   void _visitRenderObject(RenderObject renderObject, Offset parentOffset, List<_TempRect> tempRects) {
+    // 遇到扫描边界时停止向下遍历（由内部 overlay 处理）
+    if (renderObject is RenderScanBoundary) {
+      return;
+    }
+
     if (renderObject is RenderParagraph) {
       _extractSpoilerRects(renderObject, parentOffset, tempRects);
     }

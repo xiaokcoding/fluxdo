@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'inline_spoiler_builder.dart' show spoilerMarkerFont;
+import 'scan_boundary.dart';
 
 /// 用于标记内联代码的特殊字体名称
 const String _codeMarkerFont = '_InlineCode_';
@@ -100,6 +101,11 @@ class _InlineDecoratorOverlayState extends State<InlineDecoratorOverlay> {
   }
 
   void _visitRenderObject(RenderObject renderObject, Offset parentOffset, List<List<Rect>> groups) {
+    // 遇到扫描边界时停止向下遍历（由内部 overlay 处理）
+    if (renderObject is RenderScanBoundary) {
+      return;
+    }
+
     if (renderObject is RenderParagraph) {
       _extractCodeRects(renderObject, parentOffset, groups);
     }
@@ -208,35 +214,21 @@ class _InlineDecoratorOverlayState extends State<InlineDecoratorOverlay> {
             ),
           ),
         // 内容层在上面
-        NotificationListener<SizeChangedLayoutNotification>(
-          onNotification: (_) {
-            // 布局变化时重新扫描
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _scanForCodeRects();
-                setState(() {});
-              }
-            });
-            return false;
-          },
-          child: SizeChangedLayoutNotifier(
-            child: Builder(
-              builder: (context) {
-                // 首次构建或需要重新扫描时延迟扫描
-                if (!_hasScanned || _needsRescan) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      _scanForCodeRects();
-                      _hasScanned = true;
-                      _needsRescan = false;
-                      setState(() {});
-                    }
-                  });
+        Builder(
+          builder: (context) {
+            // 首次构建或需要重新扫描时延迟扫描
+            if (!_hasScanned || _needsRescan) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _scanForCodeRects();
+                  _hasScanned = true;
+                  _needsRescan = false;
+                  setState(() {});
                 }
-                return widget.child;
-              },
-            ),
-          ),
+              });
+            }
+            return widget.child;
+          },
         ),
       ],
     );
