@@ -225,6 +225,7 @@ class _ChunkWidget extends StatelessWidget {
         enableSelectionArea: false, // 由外层 SelectionArea 统一控制
         mentionedUsers: mentionedUsers,
         fullHtml: fullHtml,
+        isChunkChild: true, // 分块子块需要注入点击数
         post: post,
         topicId: topicId,
       ),

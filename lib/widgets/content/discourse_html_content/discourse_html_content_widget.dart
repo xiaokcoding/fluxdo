@@ -45,6 +45,8 @@ class DiscourseHtmlContent extends ConsumerStatefulWidget {
   final List<MentionedUser>? mentionedUsers;
   /// 完整 HTML（用于脚注匹配，分块渲染时传递）
   final String? fullHtml;
+  /// 是否是分块渲染的子块（子块仍需注入点击数，与嵌套渲染区分）
+  final bool isChunkChild;
   /// Post 对象（用于投票数据）
   final Post? post;
   /// 话题 ID（用于链接点击追踪）
@@ -63,6 +65,7 @@ class DiscourseHtmlContent extends ConsumerStatefulWidget {
     this.enableSelectionArea = true,
     this.mentionedUsers,
     this.fullHtml,
+    this.isChunkChild = false,
     this.post,
     this.topicId,
     this.enablePanguSpacing,
@@ -157,8 +160,10 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       (match) => '${match.group(1)}\u200B',
     );
 
-    // 5. 注入链接点击数（只在顶层处理，避免嵌套重复）
-    if (widget.linkCounts != null && widget.fullHtml == null) {
+    // 5. 注入链接点击数（顶层处理或分块子块处理，避免嵌套重复）
+    // - fullHtml == null: 顶层渲染
+    // - isChunkChild: 分块子块（需要注入，因为分块时顶层没有处理 HTML）
+    if (widget.linkCounts != null && (widget.fullHtml == null || widget.isChunkChild)) {
       processedHtml = _injectClickCounts(processedHtml);
     }
 
