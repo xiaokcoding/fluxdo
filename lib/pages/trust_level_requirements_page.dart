@@ -100,11 +100,11 @@ class _TrustLevelRequirementsPageState
             }
             _tableData.add(rowData);
 
-            // 检查第二列的颜色类
+            // 检查第二列的状态类（status-met 为绿色，status-unmet 为红色）
             if (cells.length > 1) {
               final secondCell = cells[1];
-              _greenRows.add(secondCell.classes.contains('text-green-500'));
-              _redRows.add(secondCell.classes.contains('text-red-500'));
+              _greenRows.add(secondCell.classes.contains('status-met'));
+              _redRows.add(secondCell.classes.contains('status-unmet'));
             } else {
               _greenRows.add(false);
               _redRows.add(false);
