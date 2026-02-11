@@ -15,6 +15,25 @@ enum TopicListFilter {
   hot,
 }
 
+/// TopicListFilter 扩展方法
+extension TopicListFilterX on TopicListFilter {
+  /// 获取 API 请求所用的过滤器名称
+  String get filterName {
+    switch (this) {
+      case TopicListFilter.latest:
+        return 'latest';
+      case TopicListFilter.newTopics:
+        return 'new';
+      case TopicListFilter.unread:
+        return 'unread';
+      case TopicListFilter.top:
+        return 'top';
+      case TopicListFilter.hot:
+        return 'top/weekly';
+    }
+  }
+}
+
 /// 话题列表 Notifier (支持分页、静默刷新和筛选)
 class TopicListNotifier extends AsyncNotifier<List<Topic>> {
   TopicListNotifier(this.arg);
@@ -107,20 +126,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
     }
   }
 
-  String _getFilterName(TopicListFilter filter) {
-    switch (filter) {
-      case TopicListFilter.latest:
-        return 'latest';
-      case TopicListFilter.newTopics:
-        return 'new';
-      case TopicListFilter.unread:
-        return 'unread';
-      case TopicListFilter.top:
-        return 'top';
-      case TopicListFilter.hot:
-        return 'top/weekly';
-    }
-  }
+  String _getFilterName(TopicListFilter filter) => filter.filterName;
 
   /// 刷新列表
   Future<void> refresh() async {

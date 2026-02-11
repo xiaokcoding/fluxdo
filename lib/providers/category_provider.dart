@@ -22,10 +22,11 @@ final activeCategorySlugsProvider =
     NotifierProvider<ActiveCategorySlugsNotifier, Set<String>>(
         () => ActiveCategorySlugsNotifier());
 
-/// 分类列表 Provider
+/// 分类列表 Provider（已过滤系统默认的"未分类"）
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
   final service = ref.watch(discourseServiceProvider);
-  return service.getCategories();
+  final categories = await service.getCategories();
+  return categories.where((c) => c.id != 1).toList();
 });
 
 /// 分类 Map Provider (ID -> Category)

@@ -71,8 +71,15 @@ class TopicFilterNotifier extends Notifier<TopicFilterParams> {
   TopicFilterParams build() => const TopicFilterParams();
 
   void setCategory(Category? category) {
+    final oldCategoryId = state.categoryId;
+
     if (category == null) {
-      state = state.copyWith(clearCategory: true);
+      // 分类变化时清空标签
+      if (oldCategoryId != null) {
+        state = const TopicFilterParams();
+      } else {
+        state = state.copyWith(clearCategory: true);
+      }
     } else {
       String? parentSlug;
 
@@ -85,11 +92,15 @@ class TopicFilterNotifier extends Notifier<TopicFilterParams> {
         }
       }
 
+      // 分类变化时清空标签
+      final shouldClearTags = category.id != oldCategoryId;
+
       state = state.copyWith(
         categoryId: category.id,
         categorySlug: category.slug,
         categoryName: category.name,
         parentCategorySlug: parentSlug,
+        tags: shouldClearTags ? [] : null,
       );
       ref.read(activeCategorySlugsProvider.notifier).add(category.slug);
     }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core_providers.dart';
 import 'notification_list_provider.dart';
 import 'topic_list_provider.dart';
+import 'topic_sort_provider.dart';
 import 'user_content_providers.dart';
 import 'category_provider.dart';
 import 'message_bus/notification_providers.dart';
@@ -21,6 +22,7 @@ class AppStateRefresher {
   static Future<void> resetForLogout(WidgetRef ref) async {
     refreshAll(ref);
     ref.read(topicFilterProvider.notifier).clearAll();
+    ref.read(topicSortProvider.notifier).state = TopicListFilter.latest;
     ref.read(activeCategorySlugsProvider.notifier).reset();
     await ref.read(ldcUserInfoProvider.notifier).disable();
   }

@@ -82,6 +82,15 @@ mixin _CategoriesMixin on _DiscourseServiceBase {
     return PreloadedDataService().getMinPmPostLength();
   }
 
+  /// 设置分类通知级别
+  Future<void> setCategoryNotificationLevel(int categoryId, int level) async {
+    await _dio.post(
+      '/category/$categoryId/notifications',
+      data: {'notification_level': level},
+      options: Options(contentType: Headers.formUrlEncodedContentType),
+    );
+  }
+
   /// 获取首页书签 tab
   Future<TopicListResponse> getBookmarks({int page = 0}) async {
     final response = await _dio.get(

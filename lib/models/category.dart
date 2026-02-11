@@ -17,6 +17,7 @@ class Category {
   final List<String> allowedTagGroups;
   final bool allowGlobalTags;
   final int? permission; // 0 = full, 1 = create/reply, 2 = reply only, 3 = see
+  final int? notificationLevel; // 0=muted, 1=regular, 2=tracking, 3=watching
 
   Category({
     required this.id,
@@ -37,6 +38,7 @@ class Category {
     this.allowedTagGroups = const [],
     this.allowGlobalTags = true,
     this.permission,
+    this.notificationLevel,
   });
 
   /// 是否允许在此分类创建话题
@@ -70,6 +72,7 @@ class Category {
           .toList() ?? [],
       allowGlobalTags: json['allow_global_tags'] as bool? ?? true,
       permission: json['permission'] as int?,
+      notificationLevel: json['notification_level'] as int?,
     );
   }
 }
@@ -84,6 +87,27 @@ class RequiredTagGroup {
     return RequiredTagGroup(
       name: json['name'] as String? ?? '',
       minCount: json['min_count'] as int? ?? 0,
+    );
+  }
+}
+
+/// 分类通知级别（比话题多一个 watchingFirstPost）
+enum CategoryNotificationLevel {
+  muted(0, '静音', '不接收此分类的任何通知'),
+  regular(1, '常规', '只在被 @ 提及或回复时通知'),
+  tracking(2, '跟踪', '显示新帖未读计数'),
+  watching(3, '关注', '每个新回复都通知'),
+  watchingFirstPost(4, '关注新话题', '此分类有新话题时通知');
+
+  const CategoryNotificationLevel(this.value, this.label, this.description);
+  final int value;
+  final String label;
+  final String description;
+
+  static CategoryNotificationLevel fromValue(int? value) {
+    return CategoryNotificationLevel.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => CategoryNotificationLevel.regular,
     );
   }
 }

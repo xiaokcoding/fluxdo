@@ -1,27 +1,34 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
 import '../models/topic.dart';
-import '../widgets/topic/topic_card.dart';
+import '../models/category.dart';
 import '../providers/discourse_providers.dart';
 import '../providers/message_bus_providers.dart';
 import '../providers/selected_topic_provider.dart';
+import '../providers/pinned_categories_provider.dart';
+import '../providers/topic_sort_provider.dart';
 import 'webview_login_page.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'search_page.dart';
 import '../widgets/common/notification_icon_button.dart';
 import '../widgets/topic/topic_filter_sheet.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
-import '../widgets/topic/topic_preview_dialog.dart';
+import '../widgets/topic/sort_and_tags_bar.dart';
+import '../widgets/topic/sort_dropdown.dart';
+import '../widgets/topic/topic_item_builder.dart';
+import '../widgets/topic/topic_notification_button.dart';
+import '../widgets/topic/category_tab_manager_sheet.dart';
+import '../widgets/common/tag_selection_sheet.dart';
 import '../providers/app_state_refresher.dart';
 import '../providers/preferences_provider.dart';
-import '../utils/responsive.dart';
 import '../widgets/layout/master_detail_layout.dart';
 import '../widgets/common/error_view.dart';
 import '../widgets/common/loading_dialog.dart';
+import '../widgets/common/fading_edge_scroll_view.dart';
 
 class ScrollToTopNotifier extends StateNotifier<int> {
   ScrollToTopNotifier() : super(0);
@@ -39,7 +46,7 @@ final bottomNavVisibleProvider = StateProvider<bool>((ref) => true);
 /// 顶栏可见性状态（滚动时自动隐藏）
 final topBarVisibleProvider = StateProvider<bool>((ref) => true);
 
-/// 帖子列表页面 - 支持多 Tab (最新、新、未读、排行榜、热门)
+/// 帖子列表页面 - 分类 Tab + 排序下拉 + 标签 Chips
 class TopicsPage extends ConsumerStatefulWidget {
   const TopicsPage({super.key});
 
@@ -49,24 +56,20 @@ class TopicsPage extends ConsumerStatefulWidget {
 
 class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStateMixin {
   late TabController _tabController;
-  List<TopicListFilter> _filters = [];
-  final Map<TopicListFilter, GlobalKey<_TopicListState>> _listKeys = {};
+  int _tabLength = 1; // 初始只有"全部"
   int _currentTabIndex = 0;
+  final GlobalKey<_TopicListState> _listKey = GlobalKey<_TopicListState>();
+
+  /// 本地通知级别覆盖（categoryId -> level），用于设置后立即回显
+  final Map<int, int> _notificationLevelOverrides = {};
 
   @override
   void initState() {
     super.initState();
-    final isLoggedIn = ref.read(currentUserProvider).value != null;
-    _filters = _buildFilters(isLoggedIn: isLoggedIn);
-    _tabController = TabController(length: _filters.length, vsync: this);
+    final pinnedIds = ref.read(pinnedCategoriesProvider);
+    _tabLength = 1 + pinnedIds.length;
+    _tabController = TabController(length: _tabLength, vsync: this);
     _tabController.addListener(_handleTabChange);
-    _initListKeys();
-  }
-
-  void _initListKeys() {
-    for (final filter in _filters) {
-      _listKeys[filter] = GlobalKey<_TopicListState>();
-    }
   }
 
   @override
@@ -77,8 +80,42 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   }
 
   void _handleTabChange() {
+    if (_tabController.indexIsChanging) return;
     if (_currentTabIndex == _tabController.index) return;
-    setState(() => _currentTabIndex = _tabController.index);
+    _currentTabIndex = _tabController.index;
+    _applyTabCategory();
+  }
+
+  /// 根据当前 tab index 更新 topicFilterProvider 的分类
+  void _applyTabCategory() {
+    if (_currentTabIndex == 0) {
+      ref.read(topicFilterProvider.notifier).setCategory(null);
+    } else {
+      final pinnedIds = ref.read(pinnedCategoriesProvider);
+      final categoryMapValue = ref.read(categoryMapProvider).value;
+      if (categoryMapValue != null && _currentTabIndex - 1 < pinnedIds.length) {
+        final categoryId = pinnedIds[_currentTabIndex - 1];
+        final category = categoryMapValue[categoryId];
+        if (category != null) {
+          ref.read(topicFilterProvider.notifier).setCategory(category);
+        }
+      }
+    }
+  }
+
+  /// 检测 pinnedCategories 变化，重建 TabController
+  void _syncTabsIfNeeded(List<int> pinnedIds) {
+    final desiredLength = 1 + pinnedIds.length;
+    if (desiredLength == _tabLength) return;
+
+    final oldIndex = _tabController.index;
+    _tabController.removeListener(_handleTabChange);
+    _tabController.dispose();
+    _tabLength = desiredLength;
+    _tabController = TabController(length: _tabLength, vsync: this);
+    _tabController.addListener(_handleTabChange);
+    _currentTabIndex = oldIndex < _tabLength ? oldIndex : 0;
+    _tabController.index = _currentTabIndex;
   }
 
   void _onScrollDirectionChanged(ScrollDirection direction) {
@@ -101,71 +138,17 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
 
       AppStateRefresher.refreshAll(ref);
 
-      // 等待用户数据和话题列表加载
       try {
         await Future.wait([
           ref.read(currentUserProvider.future),
           ref.read(topicListProvider(TopicListFilter.latest).future),
         ]).timeout(const Duration(seconds: 10));
-      } catch (_) {
-        // 超时或错误时继续
-      }
+      } catch (_) {}
 
       if (mounted) {
         LoadingDialog.hide(context);
       }
     }
-  }
-
-  List<TopicListFilter> _buildFilters({required bool isLoggedIn}) {
-    if (isLoggedIn) {
-      return [
-        TopicListFilter.latest,
-        TopicListFilter.newTopics,
-        TopicListFilter.unread,
-        TopicListFilter.top,
-        TopicListFilter.hot,
-      ];
-    }
-    return [
-      TopicListFilter.latest,
-      TopicListFilter.newTopics,
-      TopicListFilter.top,
-      TopicListFilter.hot,
-    ];
-  }
-
-  List<String> _buildTitles(List<TopicListFilter> filters) {
-    return filters.map((filter) {
-      switch (filter) {
-        case TopicListFilter.latest:
-          return '最新';
-        case TopicListFilter.newTopics:
-          return '新';
-        case TopicListFilter.unread:
-          return '未读';
-        case TopicListFilter.top:
-          return '排行榜';
-        case TopicListFilter.hot:
-          return '热门';
-      }
-    }).toList();
-  }
-
-  void _syncTabsIfNeeded(bool isLoggedIn) {
-    final desiredFilters = _buildFilters(isLoggedIn: isLoggedIn);
-    if (listEquals(desiredFilters, _filters)) return;
-
-    final currentIndex = _tabController.index;
-    _tabController.removeListener(_handleTabChange);
-    _tabController.dispose();
-    _filters = desiredFilters;
-    _listKeys.clear();
-    _initListKeys();
-    _tabController = TabController(length: _filters.length, vsync: this);
-    _tabController.addListener(_handleTabChange);
-    _currentTabIndex = currentIndex < _filters.length ? currentIndex : 0;
-    _tabController.index = _currentTabIndex;
   }
 
   void _showTopicIdDialog(BuildContext context) {
@@ -211,32 +194,121 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
     );
   }
 
+  void _openCategoryManager() async {
+    final categoryId = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const CategoryTabManagerSheet(),
+    );
+
+    // 如果返回了 category ID，切换到对应的 Tab
+    if (categoryId != null && mounted) {
+      final pinnedIds = ref.read(pinnedCategoriesProvider);
+      final tabIndex = pinnedIds.indexOf(categoryId);
+      if (tabIndex >= 0) {
+        _tabController.animateTo(tabIndex + 1); // +1 因为"全部"在 index 0
+      }
+    }
+  }
+
+  Future<void> _openTagSelection() async {
+    final filter = ref.read(topicFilterProvider);
+    final tagsAsync = ref.read(tagsProvider);
+    final availableTags = tagsAsync.when(
+      data: (tags) => tags,
+      loading: () => <String>[],
+      error: (e, s) => <String>[],
+    );
+
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TagSelectionSheet(
+        availableTags: availableTags,
+        selectedTags: filter.tags,
+        maxTags: 99,
+      ),
+    );
+
+    if (result != null && mounted) {
+      ref.read(topicFilterProvider.notifier).setTags(result);
+    }
+  }
+
+  /// 获取当前选中分类 Tab 对应的 Category（仅非"全部"时返回）
+  Category? _getCurrentCategory(List<int> pinnedIds, Map<int, Category>? categoryMap) {
+    if (_currentTabIndex == 0 || categoryMap == null) return null;
+    if (_currentTabIndex - 1 >= pinnedIds.length) return null;
+    final categoryId = pinnedIds[_currentTabIndex - 1];
+    return categoryMap[categoryId];
+  }
+
+  /// 构建排序栏右侧的订阅按钮（仅选中分类 Tab 时显示）
+  Widget? _buildTrailing(Category? category, bool isLoggedIn) {
+    if (category == null || !isLoggedIn) return null;
+    // 优先使用本地覆盖值，否则取服务端返回值
+    final effectiveLevel = _notificationLevelOverrides[category.id]
+        ?? category.notificationLevel;
+    final level = CategoryNotificationLevel.fromValue(effectiveLevel);
+    return CategoryNotificationButton(
+      level: level,
+      onChanged: (newLevel) async {
+        final oldLevel = effectiveLevel;
+        // 乐观更新
+        setState(() => _notificationLevelOverrides[category.id] = newLevel.value);
+        try {
+          final service = ref.read(discourseServiceProvider);
+          await service.setCategoryNotificationLevel(category.id, newLevel.value);
+        } catch (_) {
+          // 失败时回退
+          if (mounted) {
+            setState(() {
+              if (oldLevel != null) {
+                _notificationLevelOverrides[category.id] = oldLevel;
+              } else {
+                _notificationLevelOverrides.remove(category.id);
+              }
+            });
+          }
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
     final isLoggedIn = ref.watch(currentUserProvider).value != null;
-    _syncTabsIfNeeded(isLoggedIn);
-    final titles = _buildTitles(_filters);
-    final showSearchBar = ref.watch(topBarVisibleProvider);
+    final showBar = ref.watch(topBarVisibleProvider);
+    final pinnedIds = ref.watch(pinnedCategoriesProvider);
+    final categoryMapAsync = ref.watch(categoryMapProvider);
+    final currentSort = ref.watch(topicSortProvider);
+    final filter = ref.watch(topicFilterProvider);
+
+    _syncTabsIfNeeded(pinnedIds);
+
+    final currentCategory = _getCurrentCategory(pinnedIds, categoryMapAsync.value);
 
     // 监听滚动到顶部的通知
     ref.listen(scrollToTopProvider, (previous, next) {
-      final currentFilter = _filters[_tabController.index];
-      _listKeys[currentFilter]?.currentState?.scrollToTop();
+      _listKey.currentState?.scrollToTop();
     });
 
     return Column(
       children: [
-        // 搜索栏：下滑消失，上滑显示
+        // 搜索栏：滚动时隐藏
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOutCubic,
-          height: showSearchBar ? topPadding + 56 : topPadding,
+          height: showBar ? topPadding + 56 : topPadding,
           child: Container(
             color: Theme.of(context).scaffoldBackgroundColor,
             padding: EdgeInsets.only(top: topPadding + 8, left: 16, right: 16, bottom: 8),
             child: AnimatedOpacity(
-              opacity: showSearchBar ? 1 : 0,
+              opacity: showBar ? 1 : 0,
               duration: const Duration(milliseconds: 200),
               child: Row(
                 children: [
@@ -249,7 +321,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
                       child: Container(
                         height: 40,
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -289,7 +361,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
             ),
           ),
         ),
-        // TabBar：固定显示，点击时恢复顶栏和底栏
+        // 分类 Tab 行（始终可见）
         GestureDetector(
           onTap: () {
             ref.read(topBarVisibleProvider.notifier).state = true;
@@ -300,55 +372,102 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
             child: Row(
               children: [
                 Expanded(
-                  child: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    tabs: titles.map((t) => Tab(text: t)).toList(),
-                    labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                    unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-                    dividerColor: Colors.transparent,
+                  child: FadingEdgeScrollView(
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      tabs: _buildCategoryTabs(pinnedIds, categoryMapAsync.value ?? {}),
+                      labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+                      dividerColor: Colors.transparent,
+                      onTap: (index) {
+                        if (index == _currentTabIndex) {
+                          _listKey.currentState?.scrollToTop();
+                        }
+                      },
+                    ),
                   ),
                 ),
-                // 筛选按钮
-                _FilterButton(),
+                // 排序栏隐藏时，显示排序快捷按钮
+                if (!showBar)
+                  SortDropdown(
+                    currentSort: currentSort,
+                    isLoggedIn: isLoggedIn,
+                    onSortChanged: (sort) {
+                      ref.read(topicSortProvider.notifier).state = sort;
+                    },
+                    style: SortDropdownStyle.compact,
+                  ),
+                // 分类浏览按钮
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    icon: const Icon(Icons.segment, size: 20),
+                    onPressed: _openCategoryManager,
+                    tooltip: '浏览分类',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
               ],
             ),
           ),
         ),
-        // 当前筛选条件
-        const ActiveFiltersBar(),
-        // 列表内容
+        // 排序+标签栏：固定在 Tab 和列表之间，滚动时隐藏
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: showBar
+              ? SortAndTagsBar(
+                  currentSort: currentSort,
+                  isLoggedIn: isLoggedIn,
+                  onSortChanged: (sort) {
+                    ref.read(topicSortProvider.notifier).state = sort;
+                  },
+                  selectedTags: filter.tags,
+                  onTagRemoved: (tag) {
+                    ref.read(topicFilterProvider.notifier).removeTag(tag);
+                  },
+                  onAddTag: _openTagSelection,
+                  trailing: _buildTrailing(currentCategory, isLoggedIn),
+                )
+              : const SizedBox.shrink(),
+        ),
+        // 列表区域
         Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              for (var i = 0; i < _filters.length; i++)
-                _TopicList(
-                  key: _listKeys[_filters[i]],
-                  filter: _filters[i],
-                  isActive: (i - _currentTabIndex).abs() <= 1,
-                  onLoginRequired: _goToLogin,
-                  onScrollDirectionChanged: _onScrollDirectionChanged,
-                ),
-            ],
+          child: _TopicList(
+            key: _listKey,
+            onLoginRequired: _goToLogin,
+            onScrollDirectionChanged: _onScrollDirectionChanged,
           ),
         ),
       ],
     );
   }
+
+  /// 构建分类 Tab 列表
+  List<Tab> _buildCategoryTabs(List<int> pinnedIds, Map<int, Category> categoryMap) {
+    final tabs = <Tab>[const Tab(text: '全部')];
+    for (final id in pinnedIds) {
+      final category = categoryMap[id];
+      if (category != null) {
+        tabs.add(Tab(text: category.name));
+      } else {
+        tabs.add(Tab(text: '...'));
+      }
+    }
+    return tabs;
+  }
+
 }
 
+/// 话题列表（共用一个，根据 topicSortProvider + topicFilterProvider 获取数据）
 class _TopicList extends ConsumerStatefulWidget {
-  final TopicListFilter filter;
-  final bool isActive;
   final VoidCallback onLoginRequired;
   final ValueChanged<ScrollDirection> onScrollDirectionChanged;
 
   const _TopicList({
     super.key,
-    required this.filter,
-    required this.isActive,
     required this.onLoginRequired,
     required this.onScrollDirectionChanged,
   });
@@ -357,31 +476,18 @@ class _TopicList extends ConsumerStatefulWidget {
   ConsumerState<_TopicList> createState() => _TopicListState();
 }
 
-class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveClientMixin {
+class _TopicListState extends ConsumerState<_TopicList> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingNewTopics = false;
-  bool _readyToBuild = false;
 
-  /// 滚动方向切换阈值（像素），超过此距离才触发显示/隐藏切换
   static const double _scrollDirectionThreshold = 30.0;
-
-  /// 上一次触发方向切换时的滚动位置
   double _lastDirectionChangeOffset = 0.0;
-
-  /// 上一次触发的滚动方向
   ScrollDirection _lastTriggeredDirection = ScrollDirection.idle;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() => _readyToBuild = true);
-    });
   }
 
   @override
@@ -391,18 +497,18 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
   }
 
   void _onScroll() {
+    final currentSort = ref.read(topicSortProvider);
     // 加载更多
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      ref.read(topicListProvider(widget.filter).notifier).loadMore();
+      ref.read(topicListProvider(currentSort).notifier).loadMore();
     }
-    // 滚动方向（带阈值过滤，避免轻微滑动导致反复切换）
+    // 滚动方向
     final direction = _scrollController.position.userScrollDirection;
     if (direction == ScrollDirection.idle) return;
 
     final currentOffset = _scrollController.position.pixels;
     final scrollDelta = (currentOffset - _lastDirectionChangeOffset).abs();
 
-    // 只有滚动距离超过阈值，且方向与上次触发方向不同时才触发切换
     if (scrollDelta >= _scrollDirectionThreshold && direction != _lastTriggeredDirection) {
       _lastDirectionChangeOffset = currentOffset;
       _lastTriggeredDirection = direction;
@@ -423,7 +529,6 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
   void _openTopic(Topic topic) {
     final canShowDetailPane = MasterDetailLayout.canShowBothPanesFor(context);
 
-    // 双栏可用：使用 Master-Detail 模式
     if (canShowDetailPane) {
       ref.read(selectedTopicProvider.notifier).select(
         topicId: topic.id,
@@ -433,7 +538,6 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
       return;
     }
 
-    // 单栏：跳转页面
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TopicDetailPage(
@@ -448,116 +552,68 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-    if (!widget.isActive) {
-      return const SizedBox.expand();
-    }
-    if (!_readyToBuild) {
-      return const SizedBox.expand();
-    }
-
-    final currentUserAsync = ref.watch(currentUserProvider);
-    final user = currentUserAsync.value;
+    final currentSort = ref.watch(topicSortProvider);
     final selectedTopicId = ref.watch(selectedTopicProvider).topicId;
+    final topicsAsync = ref.watch(topicListProvider(currentSort));
 
-    if (user == null && !currentUserAsync.isLoading &&
-        (widget.filter == TopicListFilter.newTopics || widget.filter == TopicListFilter.unread)) {
-      return _buildLoginPrompt();
-    }
-
-    final topicsAsync = ref.watch(topicListProvider(widget.filter));
-    
     return topicsAsync.when(
       data: (topics) {
         if (topics.isEmpty) {
-           return RefreshIndicator(
-             onRefresh: () => ref.refresh(topicListProvider(widget.filter).future),
-             child: ListView(
-               physics: const AlwaysScrollableScrollPhysics(),
-               children: const [
-                 SizedBox(height: 100),
-                 Center(child: Text('没有相关话题')),
-               ],
-             ),
-           );
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(topicListProvider(currentSort).future),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 100),
+                Center(child: Text('没有相关话题')),
+              ],
+            ),
+          );
         }
 
         final incomingState = ref.watch(latestChannelProvider);
-        final hasNewTopics = widget.filter == TopicListFilter.latest && incomingState.hasIncoming;
+        final hasNewTopics = currentSort == TopicListFilter.latest && incomingState.hasIncoming;
         final newTopicCount = incomingState.incomingCount;
-        final offset = hasNewTopics ? 1 : 0;
+        final newTopicOffset = hasNewTopics ? 1 : 0;
 
         return RefreshIndicator(
           onRefresh: () async {
-             await ref.read(topicListProvider(widget.filter).notifier).silentRefresh();
-             if (widget.filter == TopicListFilter.latest) {
-               ref.read(latestChannelProvider.notifier).clearNewTopics();
-             }
+            await ref.read(topicListProvider(currentSort).notifier).silentRefresh();
+            if (currentSort == TopicListFilter.latest) {
+              ref.read(latestChannelProvider.notifier).clearNewTopics();
+            }
           },
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(12),
-            itemCount: topics.length + offset + 1,
+            itemCount: topics.length + newTopicOffset + 1,
             itemBuilder: (context, index) {
-              Widget child;
-
               if (hasNewTopics && index == 0) {
-                child = _buildNewTopicIndicator(context, newTopicCount);
-              } else {
-                final topicIndex = index - offset;
-                if (topicIndex >= topics.length) {
-                  child = Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Center(
-                      child: ref.watch(topicListProvider(widget.filter).notifier).hasMore
-                          ? const CircularProgressIndicator()
-                          : const Text('没有更多了', style: TextStyle(color: Colors.grey)),
-                    ),
-                  );
-                } else {
-                  final topic = topics[topicIndex];
-                  final isSelected = topic.id == selectedTopicId;
-                  final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
-                  if (topic.pinned) {
-                    child = CompactTopicCard(
-                      topic: topic,
-                      onTap: () => _openTopic(topic),
-                      onLongPress: enableLongPress
-                          ? () => TopicPreviewDialog.show(
-                                context,
-                                topic: topic,
-                                onOpen: () => _openTopic(topic),
-                              )
-                          : null,
-                      isSelected: isSelected,
-                    );
-                  } else {
-                    child = TopicCard(
-                      topic: topic,
-                      onTap: () => _openTopic(topic),
-                      onLongPress: enableLongPress
-                          ? () => TopicPreviewDialog.show(
-                                context,
-                                topic: topic,
-                                onOpen: () => _openTopic(topic),
-                              )
-                          : null,
-                      isSelected: isSelected,
-                    );
-                  }
-                }
+                return _buildNewTopicIndicator(context, newTopicCount, currentSort);
               }
 
-              // 大屏上限制内容宽度
-              if (!Responsive.isMobile(context)) {
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: Breakpoints.maxContentWidth),
-                    child: child,
+              final topicIndex = index - newTopicOffset;
+              if (topicIndex >= topics.length) {
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Center(
+                    child: ref.watch(topicListProvider(currentSort).notifier).hasMore
+                        ? const CircularProgressIndicator()
+                        : const Text('没有更多了', style: TextStyle(color: Colors.grey)),
                   ),
                 );
               }
-              return child;
+
+              final topic = topics[topicIndex];
+              final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
+
+              return buildTopicItem(
+                context: context,
+                topic: topic,
+                isSelected: topic.id == selectedTopicId,
+                onTap: () => _openTopic(topic),
+                enableLongPress: enableLongPress,
+              );
             },
           ),
         );
@@ -566,16 +622,16 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
       error: (error, stack) => ErrorView(
         error: error,
         stackTrace: stack,
-        onRetry: () => ref.refresh(topicListProvider(widget.filter)),
+        onRetry: () => ref.refresh(topicListProvider(currentSort)),
       ),
     );
   }
 
-  Widget _buildNewTopicIndicator(BuildContext context, int count) {
+  Widget _buildNewTopicIndicator(BuildContext context, int count, TopicListFilter currentSort) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha:0.2),
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -584,11 +640,11 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
               _isLoadingNewTopics = true;
             });
             try {
-              await ref.read(topicListProvider(widget.filter).notifier).silentRefresh();
+              await ref.read(topicListProvider(currentSort).notifier).silentRefresh();
               ref.read(latestChannelProvider.notifier).clearNewTopics();
 
               if (mounted) {
-                 _scrollController.animateTo(
+                _scrollController.animateTo(
                   0,
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOut,
@@ -635,111 +691,6 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
                         ),
                       ],
                     ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoginPrompt() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.lock_person,
-                size: 64,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              '需要登录',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '登录后查看此类话题',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: widget.onLoginRequired,
-              icon: const Icon(Icons.login),
-              label: const Text('登录'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-/// 筛选按钮
-class _FilterButton extends ConsumerWidget {
-  const _FilterButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final filter = ref.watch(topicFilterProvider);
-    final hasFilter = filter.isNotEmpty;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 16, left: 8),
-      child: Material(
-        color: hasFilter ? colorScheme.primaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => const TopicFilterSheet(),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  hasFilter ? Icons.filter_alt : Icons.filter_alt_outlined,
-                  size: 20,
-                  color: hasFilter ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
-                ),
-                if (hasFilter) ...[
-                  const SizedBox(width: 4),
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ],
             ),
           ),
         ),

@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 import 'pages/topics_page.dart';
 import 'pages/topics_screen.dart';
 import 'pages/profile_page.dart';
@@ -36,6 +39,11 @@ import 'widgets/layout/adaptive_navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 桌面平台初始化 window_manager（用于视频全屏等窗口控制）
+  if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    await windowManager.ensureInitialized();
+  }
 
   // 初始化 User-Agent（获取 WebView UA 并移除 wv 标识）
   await AppConstants.initUserAgent();

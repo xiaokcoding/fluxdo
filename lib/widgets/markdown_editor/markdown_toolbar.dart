@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../services/discourse/discourse_service.dart';
+import '../common/fading_edge_scroll_view.dart';
 import 'image_upload_dialog.dart';
 import 'link_insert_dialog.dart';
 
@@ -616,77 +617,81 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
               ),
               // Markdown 工具按钮 (可滚动)
               Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      // 标题按钮（带弹出菜单）
-                      PopupMenuButton<int>(
-                        icon: FaIcon(
-                          FontAwesomeIcons.heading,
-                          size: 16,
-                          color: theme.colorScheme.onSurfaceVariant,
+                child: FadingEdgeScrollView(
+                  fadeLeft: true,
+                  fadeRight: true,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        // 标题按钮（带弹出菜单）
+                        PopupMenuButton<int>(
+                          icon: FaIcon(
+                            FontAwesomeIcons.heading,
+                            size: 16,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 1, child: Text('H1 - 一级标题')),
+                            const PopupMenuItem(value: 2, child: Text('H2 - 二级标题')),
+                            const PopupMenuItem(value: 3, child: Text('H3 - 三级标题')),
+                            const PopupMenuItem(value: 4, child: Text('H4 - 四级标题')),
+                            const PopupMenuItem(value: 5, child: Text('H5 - 五级标题')),
+                          ],
+                          onSelected: (level) {
+                            applyLinePrefix('${'#' * level} ');
+                          },
+                          padding: EdgeInsets.zero,
+                          iconSize: 20,
                         ),
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(value: 1, child: Text('H1 - 一级标题')),
-                          const PopupMenuItem(value: 2, child: Text('H2 - 二级标题')),
-                          const PopupMenuItem(value: 3, child: Text('H3 - 三级标题')),
-                          const PopupMenuItem(value: 4, child: Text('H4 - 四级标题')),
-                          const PopupMenuItem(value: 5, child: Text('H5 - 五级标题')),
-                        ],
-                        onSelected: (level) {
-                          applyLinePrefix('${'#' * level} ');
-                        },
-                        padding: EdgeInsets.zero,
-                        iconSize: 20,
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.bold,
-                        onPressed: () => wrapSelection('**', '**'),
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.italic,
-                        onPressed: () => wrapSelection('*', '*'),
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.strikethrough,
-                        onPressed: insertStrikethrough,
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.listUl,
-                        onPressed: () => applyLinePrefix('- '),
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.listOl,
-                        onPressed: () => applyLinePrefix('1. '),
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.link,
-                        onPressed: () => insertLink(context),
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.quoteRight,
-                        onPressed: insertQuote,
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.code,
-                        onPressed: insertInlineCode,
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.fileCode,
-                        onPressed: insertCodeBlock,
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.image,
-                        onPressed: _isUploading ? null : _pickAndUploadImage,
-                        isLoading: _isUploading,
-                      ),
-                      _ToolbarButton(
-                        icon: FontAwesomeIcons.tableColumns,
-                        onPressed: wrapImagesInGrid,
-                        tooltip: '图片网格',
-                      ),
-                    ],
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.bold,
+                          onPressed: () => wrapSelection('**', '**'),
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.italic,
+                          onPressed: () => wrapSelection('*', '*'),
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.strikethrough,
+                          onPressed: insertStrikethrough,
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.listUl,
+                          onPressed: () => applyLinePrefix('- '),
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.listOl,
+                          onPressed: () => applyLinePrefix('1. '),
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.link,
+                          onPressed: () => insertLink(context),
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.quoteRight,
+                          onPressed: insertQuote,
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.code,
+                          onPressed: insertInlineCode,
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.fileCode,
+                          onPressed: insertCodeBlock,
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.image,
+                          onPressed: _isUploading ? null : _pickAndUploadImage,
+                          isLoading: _isUploading,
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.tableColumns,
+                          onPressed: wrapImagesInGrid,
+                          tooltip: '图片网格',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/selected_topic_provider.dart';
 import '../providers/discourse_providers.dart';
+import '../providers/topic_sort_provider.dart';
 import '../widgets/layout/master_detail_layout.dart';
 import 'topics_page.dart';
 import 'topic_detail_page/topic_detail_page.dart';
@@ -99,10 +100,9 @@ class _TopicsScreenState extends ConsumerState<TopicsScreen> {
       MaterialPageRoute(builder: (_) => const CreateTopicPage()),
     );
     if (topicId != null && context.mounted) {
-      // 刷新列表
-      for (final filter in TopicListFilter.values) {
-        ref.invalidate(topicListProvider(filter));
-      }
+      // 刷新当前排序模式的列表
+      final currentSort = ref.read(topicSortProvider);
+      ref.invalidate(topicListProvider(currentSort));
       // 在 Master-Detail 模式下，选中新话题
       ref.read(selectedTopicProvider.notifier).select(topicId: topicId);
     }
