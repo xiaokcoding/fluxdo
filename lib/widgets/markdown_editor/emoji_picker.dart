@@ -107,31 +107,31 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
   /// 显示表情搜索对话框
   Future<void> _showSearchDialog(BuildContext context, Map<String, List<Emoji>>? emojiGroups) async {
     if (emojiGroups == null || emojiGroups.isEmpty) return;
-    
+
     final allEmojis = emojiGroups.values.expand((e) => e).toList();
-    
-    // 打开前强制失去焦点，清除"上一个焦点"记忆
-    FocusScope.of(context).unfocus();
-    
+    // 保存回调：弹窗打开后表情面板可能被卸载，需要提前捕获
+    final onSelected = widget.onEmojiSelected;
+
     final selectedEmoji = await showModalBottomSheet<Emoji>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.transparent, // 背景透明以便显示圆角
+      backgroundColor: Colors.transparent,
       builder: (context) => _EmojiSearchSheet(allEmojis: allEmojis),
     );
 
-    // 对话框关闭后，再次强制失去焦点，并防止焦点恢复
-    if (mounted) {
-       FocusScope.of(this.context).unfocus();
-       // 在下一帧再次确认，应对某些系统的自动焦点恢复机制
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-         if (mounted) FocusScope.of(this.context).unfocus();
-       });
-    }
-
-    if (selectedEmoji != null && mounted) {
-      _onEmojiTap(selectedEmoji);
+    if (selectedEmoji != null) {
+      // 保存常用表情（不依赖 mounted 状态）
+      _recentEmojiNames.remove(selectedEmoji.name);
+      _recentEmojiNames.insert(0, selectedEmoji.name);
+      if (_recentEmojiNames.length > _maxRecentEmojis) {
+        _recentEmojiNames = _recentEmojiNames.sublist(0, _maxRecentEmojis);
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_recentEmojisKey, _recentEmojiNames);
+      if (mounted) setState(() {});
+      // 使用捕获的回调插入表情
+      onSelected(selectedEmoji);
     }
   }
   

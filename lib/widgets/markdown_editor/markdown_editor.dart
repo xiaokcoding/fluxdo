@@ -469,14 +469,21 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     final height = keyboardHeight > 0
         ? max(keyboardHeight, safeBottom)
         : max(widget.emojiPanelHeight, safeBottom);
-    return Focus(
-      canRequestFocus: false,
-      descendantsAreFocusable: false,
+    // TextFieldTapRegion 防止点击表情面板时 TextField 失焦
+    return TextFieldTapRegion(
       child: SizedBox(
         height: height,
         child: EmojiPicker(
           onEmojiSelected: (emoji) {
-            _toolbarKey.currentState?.insertText(':${emoji.name}:');
+            // 确保编辑器有焦点（搜索弹窗关闭后焦点可能丢失）
+            if (!_focusNode.hasFocus) {
+              _focusNode.requestFocus();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _toolbarKey.currentState?.insertText(':${emoji.name}:');
+              });
+            } else {
+              _toolbarKey.currentState?.insertText(':${emoji.name}:');
+            }
           },
         ),
       ),
@@ -507,10 +514,8 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                 ),
         ),
 
-        // 工具栏（纯按钮行，不抢夺编辑器焦点）
-        Focus(
-          canRequestFocus: false,
-          descendantsAreFocusable: false,
+        // 工具栏（纯按钮行，TextFieldTapRegion 防止点击时 TextField 失焦）
+        TextFieldTapRegion(
           child: MarkdownToolbar(
           key: _toolbarKey,
           controller: widget.controller,
@@ -546,6 +551,11 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                 newType = data ?? EditorPanelType.none;
             }
 
+            // 表情面板应保持打开时（如搜索弹窗导致的焦点变化），忽略关闭请求
+            if (_emojiPanelIntended && newType != EditorPanelType.emoji) {
+              return;
+            }
+
             final wasEmoji = _currentPanelType == EditorPanelType.emoji;
             final wasNone = _currentPanelType == EditorPanelType.none;
             final isEmoji = newType == EditorPanelType.emoji;
@@ -566,6 +576,13 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
           },
           // 自定义面板容器：键盘和表情面板等高，切换时工具栏位置不变
           customPanelContainer: (panelType, data) {
+            // 表情面板应保持打开时，无论 panelType 如何变化都继续显示表情面板
+            if (_emojiPanelIntended && panelType != ChatBottomPanelType.other) {
+              return ColoredBox(
+                color: theme.colorScheme.surface,
+                child: _buildEmojiPanel(),
+              );
+            }
             switch (panelType) {
               case ChatBottomPanelType.keyboard:
                 return _KeyboardPlaceholder(
