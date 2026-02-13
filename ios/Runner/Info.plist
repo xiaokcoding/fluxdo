@@ -62,5 +62,16 @@
 	<!-- 启用 UIScene lifecycle（app_links 需要） -->
 	<key>FlutterDeepLinkingEnabled</key>
 	<false/>
+	<!-- 后台任务标识符 -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.fluxdo.notificationPoll</string>
+	</array>
+	<!-- 后台模式 -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 </dict>
 </plist>

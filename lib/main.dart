@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,8 @@ import 'services/cf_challenge_logger.dart';
 import 'services/update_service.dart';
 import 'services/update_checker_helper.dart';
 import 'services/deep_link_service.dart';
+import 'services/background/background_notification_service.dart';
+import 'services/message_bus_service.dart';
 import 'models/user.dart';
 import 'constants.dart';
 
@@ -77,6 +80,9 @@ Future<void> main() async {
 
   // 初始化本地通知服务（请求权限）
   LocalNotificationService().initialize();
+
+  // 初始化后台通知服务（Android 前台服务 / iOS BGTaskScheduler）
+  await BackgroundNotificationService().initialize();
 
   runApp(ProviderScope(
     overrides: [
@@ -160,7 +166,7 @@ class MainPage extends ConsumerStatefulWidget {
   ConsumerState<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends ConsumerState<MainPage> {
+class _MainPageState extends ConsumerState<MainPage> with WidgetsBindingObserver {
   int _currentIndex = 0;
   ProviderSubscription<AsyncValue<String>>? _authErrorSub;
   ProviderSubscription<AsyncValue<void>>? _authStateSub;
@@ -169,6 +175,7 @@ class _MainPageState extends ConsumerState<MainPage> {
   bool _messageBusInitialized = false;
   int? _lastTappedIndex;
   DateTime? _lastTapTime;
+  Timer? _resumeDebounceTimer;
 
   final List<Widget> _pages = const [
     TopicsScreen(),
@@ -178,6 +185,7 @@ class _MainPageState extends ConsumerState<MainPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // 设置导航 context（用于 CF 验证弹窗）
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -255,11 +263,49 @@ class _MainPageState extends ConsumerState<MainPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _resumeDebounceTimer?.cancel();
     _authErrorSub?.close();
     _authStateSub?.close();
     _currentUserSub?.close();
     _messageBusSub?.close();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.hidden) {
+      // hidden 比 paused 更早触发，在系统挂起 Dart isolate 之前启动前台服务
+      // 取消待执行的 resume 操作（防止配置变更等假 resume）
+      _resumeDebounceTimer?.cancel();
+      _resumeDebounceTimer = null;
+      _enterBackground();
+    } else if (state == AppLifecycleState.resumed) {
+      // 延迟执行，避免系统配置变更（主题切换等）触发的假 resume
+      _resumeDebounceTimer?.cancel();
+      _resumeDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+        _resumeDebounceTimer = null;
+        // App 回到前台 — 停止后台保活 + 恢复所有频道 + 刷新通知
+        BackgroundNotificationService().disable();
+        MessageBusService().exitBackgroundMode();
+        ref.read(currentUserProvider.notifier).refreshSilently();
+        ref.invalidate(notificationListProvider);
+      });
+    }
+  }
+
+  /// App 进入后台：先启动前台服务保活，再切换到只轮询通知频道
+  Future<void> _enterBackground() async {
+    final user = ref.read(currentUserProvider).value;
+    if (user != null) {
+      // 先启动前台服务，确保进程不被杀死
+      await BackgroundNotificationService().enable(user.id);
+    }
+    // 服务就绪后再切换轮询模式
+    MessageBusService().enterBackgroundMode();
   }
 
   Future<void> _handleAuthError(String message) async {

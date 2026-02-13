@@ -56,6 +56,7 @@ class MessageBusService {
   bool _isPolling = false;
   bool _shouldStop = false;
   bool _shouldRestart = false; // 标记是否需要重启轮询
+  bool _backgroundMode = false; // 后台模式：只轮询通知频道
   CancelToken? _currentCancelToken; // 当前请求的 CancelToken
   Timer? _reconnectTimer;
   int _failureCount = 0;
@@ -210,7 +211,17 @@ class MessageBusService {
       try {
         final payload = <String, String>{};
         for (final sub in _subscriptions.values) {
+          // 后台模式只轮询通知提醒频道
+          if (_backgroundMode && !sub.channel.startsWith('/notification-alert/')) {
+            continue;
+          }
           payload[sub.channel] = sub.lastMessageId.toString();
+        }
+
+        if (payload.isEmpty) {
+          // 后台模式下没有通知频道，等待退出后台
+          await Future.delayed(const Duration(seconds: 5));
+          continue;
         }
         
         debugPrint('[MessageBus] 发起轮询: $payload');
@@ -360,6 +371,32 @@ class MessageBusService {
     
     // 广播到全局流
     _messageController.add(message);
+  }
+
+  /// 当前是否正在轮询
+  bool get isPolling => _isPolling;
+
+  /// 进入后台模式：只轮询 /notification-alert/ 频道
+  void enterBackgroundMode() {
+    if (_backgroundMode) return;
+    _backgroundMode = true;
+    debugPrint('[MessageBus] 进入后台模式，只保留通知频道');
+    if (_isPolling) {
+      _restartPolling();
+    }
+  }
+
+  /// 退出后台模式：恢复轮询所有频道
+  void exitBackgroundMode() {
+    if (!_backgroundMode) return;
+    _backgroundMode = false;
+    debugPrint('[MessageBus] 退出后台模式，恢复所有频道');
+    _failureCount = 0;
+    if (_isPolling) {
+      _restartPolling();
+    } else if (_subscriptions.isNotEmpty) {
+      _startPolling();
+    }
   }
 
   /// 释放资源
