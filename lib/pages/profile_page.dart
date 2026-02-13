@@ -27,6 +27,8 @@ import 'drafts_page.dart';
 import '../widgets/ldc_balance_card.dart';
 import '../providers/ldc_providers.dart';
 import '../utils/number_utils.dart';
+import '../services/emoji_handler.dart';
+import '../constants.dart';
 
 /// 个人页面
 class ProfilePage extends ConsumerStatefulWidget {
@@ -823,7 +825,8 @@ Widget _buildStatusEmoji(UserStatus status) {
 
   if (isEmojiName) {
     final cleanName = emoji.replaceAll(':', '');
-    final emojiUrl = 'https://linux.do/images/emoji/twitter/$cleanName.png?v=12';
+    final emojiUrl = EmojiHandler().getEmojiUrl(cleanName) ??
+        '${AppConstants.baseUrl}/images/emoji/twitter/$cleanName.png?v=12';
 
     return Image(
       image: discourseImageProvider(emojiUrl),
