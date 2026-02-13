@@ -456,7 +456,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   void _scheduleSnap() {
     if (_isSnapping) return; // snap 动画期间的 forcePixels 触发，忽略
     _snapTimer?.cancel();
-    _snapTimer = Timer(const Duration(milliseconds: 150), () {
+    _snapTimer = Timer(const Duration(milliseconds: 30), () {
       if (mounted) _snapOuterScroll();
     });
   }
