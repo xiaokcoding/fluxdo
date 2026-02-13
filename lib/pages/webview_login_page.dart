@@ -4,6 +4,7 @@ import '../services/discourse/discourse_service.dart';
 import '../services/preloaded_data_service.dart';
 import '../services/network/cookie/cookie_jar_service.dart';
 import '../services/network/cookie/cookie_sync_service.dart';
+import '../services/toast_service.dart';
 import '../services/webview_settings.dart';
 
 /// WebView 登录页面（统一使用 flutter_inappwebview）
@@ -130,12 +131,7 @@ class _WebViewLoginPageState extends State<WebViewLoginPage> {
     await PreloadedDataService().refresh();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('登录成功！${username != null ? '用户: $username' : ''}'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      ToastService.showSuccess('登录成功！${username != null ? '用户: $username' : ''}');
       Navigator.of(context).pop(true);
     }
   }

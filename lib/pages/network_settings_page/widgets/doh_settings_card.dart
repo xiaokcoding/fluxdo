@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../services/network/doh/doh_resolver.dart';
 import '../../../services/network/doh/network_settings_service.dart';
 import '../../../services/network/proxy/proxy_settings_service.dart';
+import '../../../services/toast_service.dart';
 
 /// DOH 设置卡片（含服务器列表和测速）
 class DohSettingsCard extends StatefulWidget {
@@ -458,15 +459,11 @@ class _DohSettingsCardState extends State<DohSettingsCard> {
                 final name = nameController.text.trim();
                 final url = urlController.text.trim();
                 if (name.isEmpty || url.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('请填写完整信息')),
-                  );
+                  ToastService.showInfo('请填写完整信息');
                   return;
                 }
                 if (!url.startsWith('https://')) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('地址必须以 https:// 开头')),
-                  );
+                  ToastService.showError('地址必须以 https:// 开头');
                   return;
                 }
                 Navigator.pop(context, DohServer(name: name, url: url, isCustom: true));

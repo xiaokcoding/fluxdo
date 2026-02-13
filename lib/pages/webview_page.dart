@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../utils/link_launcher.dart';
+import '../services/toast_service.dart';
 import '../constants.dart';
 import '../services/network/cookie/cookie_jar_service.dart';
 import '../services/webview_settings.dart';
@@ -236,12 +237,7 @@ class _WebViewPageState extends State<WebViewPage> {
     if (_currentUrl.isNotEmpty) {
       await Clipboard.setData(ClipboardData(text: _currentUrl));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('链接已复制到剪贴板'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        ToastService.showSuccess('链接已复制到剪贴板');
       }
     }
   }
@@ -252,15 +248,11 @@ class _WebViewPageState extends State<WebViewPage> {
     try {
       final success = await launchInExternalBrowser(_currentUrl);
       if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开外部浏览器')),
-        );
+        ToastService.showError('无法打开外部浏览器');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('打开失败: $e')),
-        );
+        ToastService.showError('打开失败: $e');
       }
     }
   }

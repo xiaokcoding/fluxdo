@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../../services/highlighter_service.dart';
+import '../../../../../services/toast_service.dart';
 import '../../../../../utils/link_launcher.dart';
 import 'onebox_base.dart';
 
@@ -254,11 +255,7 @@ class GithubOneboxBuilder {
                       InkWell(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: codeText));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('已复制代码'),
-                                duration: Duration(seconds: 1)),
-                          );
+                          ToastService.showSuccess('已复制代码');
                         },
                         borderRadius: BorderRadius.circular(4),
                         child: Padding(

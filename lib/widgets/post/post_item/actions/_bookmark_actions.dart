@@ -22,10 +22,10 @@ extension _BookmarkActions on _PostItemState {
               _isBookmarked = false;
               _bookmarkId = null;
             });
-            _showSnackBar('已取消书签');
+            ToastService.showSuccess('已取消书签');
           }
         } else {
-          _showSnackBar('无法取消书签：缺少书签 ID');
+          ToastService.showError('无法取消书签：缺少书签 ID');
         }
       } else {
         // 添加书签
@@ -35,7 +35,7 @@ extension _BookmarkActions on _PostItemState {
             _isBookmarked = true;
             _bookmarkId = bookmarkId;
           });
-          _showSnackBar('已添加书签');
+          ToastService.showSuccess('已添加书签');
         }
       }
     } catch (_) {

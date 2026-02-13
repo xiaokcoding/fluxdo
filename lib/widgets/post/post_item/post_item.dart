@@ -8,6 +8,7 @@ import '../../../pages/topic_detail_page/topic_detail_page.dart';
 import '../../../providers/discourse_providers.dart';
 import '../../../providers/preferences_provider.dart';
 import '../../../services/discourse/discourse_service.dart';
+import '../../../services/toast_service.dart';
 import '../../../utils/time_utils.dart';
 import '../../content/discourse_html_content/chunked/chunked_html_content.dart';
 import '../small_action_item.dart';
@@ -254,16 +255,6 @@ class _PostItemState extends ConsumerState<PostItem> {
           fontWeight: FontWeight.bold,
           height: 1.1,
         ),
-      ),
-    );
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
       ),
     );
   }

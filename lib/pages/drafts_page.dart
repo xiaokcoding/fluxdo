@@ -6,6 +6,7 @@ import '../services/discourse/discourse_service.dart';
 import '../widgets/common/skeleton.dart';
 import '../widgets/common/error_view.dart';
 import '../widgets/post/reply_sheet.dart';
+import '../services/toast_service.dart';
 import '../utils/time_utils.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'create_topic_page.dart';
@@ -95,9 +96,7 @@ class _DraftsPageState extends ConsumerState<DraftsPage> {
           targetUsername: recipients.first,
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('私信草稿数据不完整')),
-        );
+        ToastService.showInfo('私信草稿数据不完整');
         return; // 不刷新
       }
     } else if (draftKey.startsWith('topic_')) {
@@ -172,9 +171,7 @@ class _DraftsPageState extends ConsumerState<DraftsPage> {
                         } catch (e) {
                           if (dialogContext.mounted) {
                             setState(() => isDeleting = false);
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              SnackBar(content: Text('删除失败: $e')),
-                            );
+                            ToastService.showError('删除失败: $e');
                           }
                         }
                       },
@@ -194,9 +191,7 @@ class _DraftsPageState extends ConsumerState<DraftsPage> {
 
     if (confirm == true && mounted) {
       ref.invalidate(draftsProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('草稿已删除')),
-      );
+      ToastService.showSuccess('草稿已删除');
     }
   }
 }

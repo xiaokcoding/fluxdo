@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../services/network_logger.dart';
 import '../../../services/cf_challenge_logger.dart';
+import '../../../services/toast_service.dart';
 
 /// 调试工具卡片
 class DebugToolsCard extends StatefulWidget {
@@ -130,9 +131,7 @@ class _DebugToolsCardState extends State<DebugToolsCard> {
                             ? null
                             : () {
                                 Clipboard.setData(ClipboardData(text: logs));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('已复制到剪贴板')),
-                                );
+                                ToastService.showSuccess('已复制到剪贴板');
                               },
                       ),
                       IconButton(
@@ -208,9 +207,7 @@ class _DebugToolsCardState extends State<DebugToolsCard> {
     final logs = await NetworkLogger.readLogs();
     if (logs == null || logs.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('暂无日志可分享')),
-      );
+      ToastService.showInfo('暂无日志可分享');
       return;
     }
 
@@ -247,9 +244,7 @@ class _DebugToolsCardState extends State<DebugToolsCard> {
     if (confirm == true) {
       await NetworkLogger.clear();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('日志已清除')),
-        );
+        ToastService.showSuccess('日志已清除');
       }
     }
   }
@@ -304,9 +299,7 @@ class _DebugToolsCardState extends State<DebugToolsCard> {
                             ? null
                             : () {
                                 Clipboard.setData(ClipboardData(text: logs));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('已复制到剪贴板')),
-                                );
+                                ToastService.showSuccess('已复制到剪贴板');
                               },
                       ),
                       IconButton(
@@ -382,9 +375,7 @@ class _DebugToolsCardState extends State<DebugToolsCard> {
     final logs = await CfChallengeLogger.readLogs();
     if (logs == null || logs.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('暂无 CF 日志可分享')),
-      );
+      ToastService.showInfo('暂无 CF 日志可分享');
       return;
     }
 
@@ -421,9 +412,7 @@ class _DebugToolsCardState extends State<DebugToolsCard> {
     if (confirm == true) {
       await CfChallengeLogger.clear();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CF 日志已清除')),
-        );
+        ToastService.showSuccess('CF 日志已清除');
       }
     }
   }

@@ -5,6 +5,7 @@ import '../constants.dart';
 import 'network/cookie/cookie_jar_service.dart';
 import 'local_notification_service.dart'; // 用于获取全局 navigatorKey
 import 'cf_challenge_logger.dart';
+import 'toast_service.dart';
 import '../widgets/draggable_floating_pill.dart';
 
 /// CF 验证服务
@@ -48,21 +49,16 @@ class CfChallengeService {
   }
 
   static void showGlobalMessage(String message, {bool isError = true}) {
-    final context = navigatorKey.currentState?.context;
-    if (context == null || !context.mounted) return;
     final now = DateTime.now();
     if (_lastToastAt != null && now.difference(_lastToastAt!) < _toastCooldown) {
       return;
     }
     _lastToastAt = now;
-    final theme = Theme.of(context);
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? theme.colorScheme.error : null,
-      ),
-    );
+    if (isError) {
+      ToastService.showError(message);
+    } else {
+      ToastService.showInfo(message);
+    }
   }
 
   void setContext(BuildContext context) {
@@ -693,12 +689,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
 
   void _showInfo(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    ToastService.showInfo(message);
   }
 
   bool _showHelpDialog = false;
@@ -719,12 +710,6 @@ class _CfChallengePageState extends State<CfChallengePage> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Theme.of(context).colorScheme.error,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    ToastService.showError(message);
   }
 }

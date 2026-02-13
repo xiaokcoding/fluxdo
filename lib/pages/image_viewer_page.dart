@@ -8,6 +8,7 @@ import '../utils/hero_visibility_controller.dart';
 import '../utils/svg_utils.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
+import '../services/toast_service.dart';
 import '../widgets/common/loading_spinner.dart';
 
 class ImageViewerPage extends StatefulWidget {
@@ -198,9 +199,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
         final granted = await Gal.requestAccess();
         if (!granted) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('请授予相册访问权限')),
-            );
+            ToastService.showInfo('请授予相册访问权限');
           }
           return;
         }
@@ -219,25 +218,16 @@ class _ImageViewerPageState extends State<ImageViewerPage>
       await Gal.putImageBytes(imageBytes, name: 'fluxdo_${DateTime.now().millisecondsSinceEpoch}.$ext');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('图片已保存到相册'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ToastService.showSuccess('图片已保存到相册');
       }
     } on GalException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: ${e.type.message}')),
-        );
+        ToastService.showError('保存失败: ${e.type.message}');
       }
     } catch (e) {
       debugPrint('Save image error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('保存失败，请重试')),
-        );
+        ToastService.showError('保存失败，请重试');
       }
     } finally {
       if (mounted) {
@@ -253,13 +243,13 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     try {
       final hasAccess = await Gal.hasAccess() || await Gal.requestAccess();
       if (!hasAccess) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请授予相册访问权限')));
+        if (mounted) ToastService.showInfo('请授予相册访问权限');
         return;
       }
       await Gal.putImageBytes(widget.imageBytes!, name: 'fluxdo_${DateTime.now().millisecondsSinceEpoch}.png');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('图片已保存到相册'), behavior: SnackBarBehavior.floating));
+      if (mounted) ToastService.showSuccess('图片已保存到相册');
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+      if (mounted) ToastService.showError('保存失败，请重试');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -294,9 +284,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     } catch (e) {
       debugPrint('Share image error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('分享失败，请重试')),
-        );
+        ToastService.showError('分享失败，请重试');
       }
     } finally {
       if (mounted) {

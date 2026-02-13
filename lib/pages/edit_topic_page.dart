@@ -6,6 +6,7 @@ import 'package:fluxdo/models/category.dart';
 import 'package:fluxdo/models/topic.dart';
 
 import 'package:fluxdo/providers/discourse_providers.dart';
+import 'package:fluxdo/services/toast_service.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
 import 'package:fluxdo/widgets/topic/topic_editor_helpers.dart';
 
@@ -139,12 +140,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('加载内容失败: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        ToastService.showError('加载内容失败: ${e.toString().replaceAll('Exception: ', '')}');
       }
     } finally {
       if (mounted) setState(() => _isLoadingContent = false);
@@ -187,24 +183,18 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
           : (ref.read(minFirstPostLengthProvider).value ?? 20);
       final contentText = _contentController.text.trim();
       if (contentText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请输入内容')),
-        );
+        ToastService.showInfo('请输入内容');
         return;
       }
       if (contentText.length < minContentLength) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('内容至少需要 $minContentLength 个字符')),
-        );
+        ToastService.showInfo('内容至少需要 $minContentLength 个字符');
         return;
       }
     }
 
     // 只有在有权限编辑元数据且不是私信时才验证分类
     if (_canEditMetadata && !_isPrivateMessage && _selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择分类')),
-      );
+      ToastService.showInfo('请选择分类');
       return;
     }
 
@@ -214,9 +204,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
         _selectedCategory != null &&
         _selectedCategory!.minimumRequiredTags > 0 &&
         _selectedTags.length < _selectedCategory!.minimumRequiredTags) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('此分类至少需要 ${_selectedCategory!.minimumRequiredTags} 个标签')),
-      );
+      ToastService.showInfo('此分类至少需要 ${_selectedCategory!.minimumRequiredTags} 个标签');
       return;
     }
 

@@ -18,7 +18,7 @@ extension _PostManageActions on _PostItemState {
         if (mounted) {
           setState(() => _isAcceptedAnswer = false);
           widget.onSolutionChanged?.call(widget.post.id, false);
-          _showSnackBar('已取消采纳');
+          ToastService.showSuccess('已取消采纳');
         }
       } else {
         // 采纳答案
@@ -26,7 +26,7 @@ extension _PostManageActions on _PostItemState {
         if (mounted) {
           setState(() => _isAcceptedAnswer = true);
           widget.onSolutionChanged?.call(widget.post.id, true);
-          _showSnackBar('已采纳为解决方案');
+          ToastService.showSuccess('已采纳为解决方案');
         }
       }
     } catch (_) {
@@ -48,7 +48,7 @@ extension _PostManageActions on _PostItemState {
     try {
       await _service.deletePost(widget.post.id);
       if (mounted) {
-        _showSnackBar('已删除');
+        ToastService.showSuccess('已删除');
         _refreshPostInProvider();
       }
     } catch (_) {
@@ -70,7 +70,7 @@ extension _PostManageActions on _PostItemState {
     try {
       await _service.recoverPost(widget.post.id);
       if (mounted) {
-        _showSnackBar('已恢复');
+        ToastService.showSuccess('已恢复');
         _refreshPostInProvider();
       }
     } catch (_) {

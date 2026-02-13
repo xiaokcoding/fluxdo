@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ldc_oauth_service.dart';
+import '../services/toast_service.dart';
 import '../providers/ldc_providers.dart';
 import '../widgets/ldc_balance_card.dart';
 
@@ -59,16 +60,12 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
         setState(() => _ldcEnabled = true);
         ref.read(ldcUserInfoProvider.notifier).refresh();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('LDC 授权成功')),
-          );
+          ToastService.showSuccess('LDC 授权成功');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('授权失败: $e')),
-        );
+        ToastService.showError('授权失败: $e');
       }
     }
   }

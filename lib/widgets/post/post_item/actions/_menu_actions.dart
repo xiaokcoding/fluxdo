@@ -22,7 +22,7 @@ extension _MenuActions on _PostItemState {
         postUsername: widget.post.username,
         service: _service,
         onSuccess: () {
-          _showSnackBar('举报已提交');
+          ToastService.showSuccess('举报已提交');
         },
       ),
     );

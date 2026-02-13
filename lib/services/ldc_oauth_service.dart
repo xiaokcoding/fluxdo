@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'network/discourse_dio.dart';
+import 'toast_service.dart';
 import '../models/ldc_user_info.dart';
 
 class LdcOAuthService {
@@ -144,9 +145,7 @@ class _AuthDialogState extends State<_AuthDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('授权失败: $e')),
-        );
+        ToastService.showError('授权失败: $e');
       }
     }
   }

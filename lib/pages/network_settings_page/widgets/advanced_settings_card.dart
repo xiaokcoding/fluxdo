@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../network_adapter_settings_page.dart';
 import '../../../services/cf_challenge_service.dart';
+import '../../../services/toast_service.dart';
 
 /// 高级设置卡片
 class AdvancedSettingsCard extends StatelessWidget {
@@ -58,22 +59,13 @@ class AdvancedSettingsCard extends StatelessWidget {
     if (!context.mounted) return;
 
     if (result == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('验证成功')),
-      );
+      ToastService.showSuccess('验证成功');
     } else if (result == false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('验证未通过'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      ToastService.showError('验证未通过');
     } else {
       // null 表示在冷却中或无 context
       if (CfChallengeService().isInCooldown) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('验证太频繁，请稍后再试')),
-        );
+        ToastService.showInfo('验证太频繁，请稍后再试');
       }
     }
   }

@@ -6,6 +6,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 import '../../../../pages/image_viewer_page.dart';
 import '../../../../services/highlighter_service.dart';
 import '../../../../services/discourse_cache_manager.dart';
+import '../../../../services/toast_service.dart';
 import '../../lazy_load_scope.dart';
 
 /// 构建代码块
@@ -245,9 +246,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
                     InkWell(
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: text));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('已复制代码'), duration: Duration(seconds: 1)),
-                        );
+                        ToastService.showSuccess('已复制代码');
                       },
                       borderRadius: BorderRadius.circular(4),
                       child: Padding(
@@ -443,7 +442,7 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
                 InkWell(
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: text));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已复制代码'), duration: Duration(seconds: 1)));
+                    ToastService.showSuccess('已复制代码');
                   },
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../services/network/proxy/proxy_settings_service.dart';
 import '../../../services/network/doh/network_settings_service.dart';
+import '../../../services/toast_service.dart';
 
 /// HTTP 代理设置卡片
 class HttpProxyCard extends StatelessWidget {
@@ -203,16 +204,12 @@ class HttpProxyCard extends StatelessWidget {
                 final host = hostController.text.trim();
                 final portText = portController.text.trim();
                 if (host.isEmpty || portText.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('请填写服务器地址和端口')),
-                  );
+                  ToastService.showInfo('请填写服务器地址和端口');
                   return;
                 }
                 final port = int.tryParse(portText);
                 if (port == null || port <= 0 || port > 65535) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('端口无效')),
-                  );
+                  ToastService.showError('端口无效');
                   return;
                 }
                 Navigator.pop(context, true);

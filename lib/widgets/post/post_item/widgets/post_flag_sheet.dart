@@ -4,6 +4,7 @@ import '../../../../constants.dart';
 import '../../../../models/topic.dart';
 import '../../../../services/preloaded_data_service.dart';
 import '../../../../services/discourse/discourse_service.dart';
+import '../../../../services/toast_service.dart';
 
 /// 举报底部弹窗
 class PostFlagSheet extends StatefulWidget {
@@ -96,9 +97,7 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
     } catch (e) {
       if (mounted) {
         final message = e is Exception ? e.toString().replaceFirst('Exception: ', '') : '举报失败，请稍后重试';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ToastService.showError(message);
       }
     } finally {
       if (mounted) {

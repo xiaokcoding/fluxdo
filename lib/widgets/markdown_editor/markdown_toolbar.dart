@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../services/discourse/discourse_service.dart';
+import '../../services/toast_service.dart';
 import '../common/fading_edge_scroll_view.dart';
 import 'image_upload_dialog.dart';
 import 'link_insert_dialog.dart';
@@ -480,7 +481,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     final allImages = imageRegex.allMatches(text).toList();
     if (allImages.length < 2) {
       // 图片数量不足
-      _showSnackBar('需要至少 2 张图片才能创建网格');
+      _showToast('需要至少 2 张图片才能创建网格');
       return;
     }
 
@@ -537,7 +538,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     final groupImages = imageRegex.allMatches(groupText).toList();
 
     if (groupImages.length < 2) {
-      _showSnackBar('需要至少 2 张连续的图片才能创建网格');
+      _showToast('需要至少 2 张连续的图片才能创建网格');
       return;
     }
 
@@ -545,7 +546,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     final beforeGroup = text.substring(0, groupStart);
     final afterGroup = text.substring(groupEnd);
     if (beforeGroup.trimRight().endsWith('[grid]') && afterGroup.trimLeft().startsWith('[/grid]')) {
-      _showSnackBar('这些图片已经在网格中了');
+      _showToast('这些图片已经在网格中了');
       return;
     }
 
@@ -560,10 +561,8 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     widget.focusNode?.requestFocus();
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+  void _showToast(String message) {
+    ToastService.showInfo(message);
   }
 
   /// 插入引用（带占位符并自动选中）

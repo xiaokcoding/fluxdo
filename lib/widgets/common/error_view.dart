@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/toast_service.dart';
 import '../../utils/error_utils.dart';
 
 /// 通用错误页面组件
@@ -160,12 +161,7 @@ class ErrorDetailsSheet extends StatelessWidget {
                   tooltip: '复制',
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: details));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('已复制到剪贴板'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                    ToastService.showSuccess('已复制到剪贴板');
                   },
                 ),
                 IconButton(

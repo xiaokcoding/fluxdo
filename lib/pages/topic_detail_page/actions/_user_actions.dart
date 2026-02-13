@@ -63,17 +63,11 @@ extension _UserActions on _TopicDetailPageState {
         });
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('回复已发送'),
-              action: SnackBarAction(
-                label: '查看',
-                onPressed: () => _scrollToPost(newPost.postNumber),
-              ),
-              behavior: SnackBarBehavior.floating,
-              persist: false,
-              duration: const Duration(seconds: 4),
-            ),
+          ToastService.show(
+            '回复已发送',
+            type: ToastType.success,
+            actionLabel: '查看',
+            onAction: () => _scrollToPost(newPost.postNumber),
           );
         }
       }
@@ -143,9 +137,7 @@ extension _UserActions on _TopicDetailPageState {
     try {
       await notifier.updateNotificationLevel(level);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已设置为${level.label}')),
-        );
+        ToastService.showSuccess('已设置为${level.label}');
       }
     } catch (e) {
       // 错误已由 ErrorInterceptor 处理
@@ -177,9 +169,7 @@ extension _UserActions on _TopicDetailPageState {
 
     final success = await launchInExternalBrowser(url);
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法打开浏览器')),
-      );
+      ToastService.showError('无法打开浏览器');
     }
   }
 

@@ -19,6 +19,7 @@ import 'services/network/cookie/cookie_jar_service.dart';
 import 'services/network/adapters/cronet_fallback_service.dart';
 import 'services/local_notification_service.dart';
 import 'services/toast_service.dart';
+
 import 'services/preloaded_data_service.dart';
 import 'services/network/doh/network_settings_service.dart';
 import 'services/network/proxy/proxy_settings_service.dart';
@@ -128,7 +129,6 @@ class MainApp extends ConsumerWidget {
 
         return MaterialApp(
           navigatorKey: navigatorKey,
-          scaffoldMessengerKey: scaffoldMessengerKey,
           title: 'FluxDO',
           // 配置中文本地化
           locale: const Locale('zh', 'CN'),
@@ -311,9 +311,7 @@ class _MainPageState extends ConsumerState<MainPage> with WidgetsBindingObserver
   Future<void> _handleAuthError(String message) async {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ToastService.showError(message);
 
     if (mounted) {
       await AppStateRefresher.resetForLogout(ref);

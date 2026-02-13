@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/topic.dart';
+import '../../services/toast_service.dart';
 import '../../utils/export_utils.dart';
 
 /// 导出选项 Sheet
@@ -69,12 +70,7 @@ class _ExportSheetState extends State<ExportSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('导出失败: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ToastService.showError('导出失败: $e');
       }
     } finally {
       if (mounted) {

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_image_editor/pro_image_editor.dart';
 
+import '../../services/toast_service.dart';
 import 'image_editor_i18n_zh.dart';
 
 /// 图片上传确认弹框结果
@@ -148,9 +149,7 @@ class _ImageUploadDialogState extends State<ImageUploadDialog> {
       ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('处理图片失败: $e'), backgroundColor: Colors.red),
-      );
+      ToastService.showError('处理图片失败: $e');
       setState(() => _isProcessing = false);
     }
   }

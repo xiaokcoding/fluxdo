@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../services/network/adapters/cronet_fallback_service.dart';
 import '../services/network/adapters/platform_adapter.dart';
+import '../services/toast_service.dart';
 
 class NetworkAdapterSettingsPage extends StatefulWidget {
   const NetworkAdapterSettingsPage({super.key});
@@ -155,9 +156,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
             onChanged: (value) async {
               await fallbackService.setForceFallback(value);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('设置已保存，重启应用后生效')),
-                );
+                ToastService.showSuccess('设置已保存，重启应用后生效');
               }
             },
           ),
@@ -337,9 +336,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
           FilledButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: reason));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已复制到剪贴板')),
-              );
+              ToastService.showSuccess('已复制到剪贴板');
             },
             child: const Text('复制'),
           ),
@@ -370,9 +367,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
     if (confirm == true) {
       await fallbackService.reset();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已重置，重启应用后生效')),
-        );
+        ToastService.showSuccess('已重置，重启应用后生效');
       }
     }
   }
@@ -406,12 +401,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
     if (confirm == true) {
       await fallbackService.simulateCronetError();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已触发模拟降级，请查看降级状态'),
-            duration: Duration(seconds: 3),
-          ),
-        );
+        ToastService.showInfo('已触发模拟降级，请查看降级状态');
       }
     }
   }

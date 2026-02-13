@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/apk_download_service.dart';
 import '../services/cf_challenge_logger.dart';
+import '../services/toast_service.dart';
 import '../services/update_service.dart';
 import '../widgets/download_progress_dialog.dart';
 import '../widgets/update_dialog.dart';
@@ -53,9 +54,7 @@ class _AboutPageState extends State<AboutPage> {
     if (alreadyEnabled) {
       setState(() => _developerMode = true);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('开发者模式已启用')),
-      );
+      ToastService.showInfo('开发者模式已启用');
       return;
     }
     await _setDeveloperMode(true);
@@ -72,9 +71,7 @@ class _AboutPageState extends State<AboutPage> {
       setState(() => _developerMode = enabled);
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(enabled ? '已启用开发者模式' : '已关闭开发者模式')),
-    );
+    ToastService.showSuccess(enabled ? '已启用开发者模式' : '已关闭开发者模式');
   }
 
   Future<void> _loadVersion() async {

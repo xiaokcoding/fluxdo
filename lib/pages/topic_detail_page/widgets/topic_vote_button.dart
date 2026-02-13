@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/topic.dart';
 import '../../../providers/discourse_providers.dart';
 import '../../../services/discourse/discourse_service.dart';
+import '../../../services/toast_service.dart';
 
 /// 话题投票按钮组件
 class TopicVoteButton extends ConsumerStatefulWidget {
@@ -46,18 +47,14 @@ class _TopicVoteButtonState extends ConsumerState<TopicVoteButton> {
     final user = ref.read(currentUserProvider).value;
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先登录')),
-        );
+        ToastService.showInfo('请先登录');
       }
       return;
     }
 
     if (widget.topic.closed) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('话题已关闭，无法投票')),
-        );
+        ToastService.showInfo('话题已关闭，无法投票');
       }
       return;
     }
@@ -80,10 +77,8 @@ class _TopicVoteButtonState extends ConsumerState<TopicVoteButton> {
           });
           
           widget.onVoteChanged?.call(response.voteCount, false);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已取消投票')),
-          );
+
+          ToastService.showSuccess('已取消投票');
         }
       } else {
         // 投票
@@ -105,9 +100,7 @@ class _TopicVoteButtonState extends ConsumerState<TopicVoteButton> {
             message = '投票成功，您的投票已用完';
           }
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
+          ToastService.showSuccess(message);
         }
       }
     } catch (_) {

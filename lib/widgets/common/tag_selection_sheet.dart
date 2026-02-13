@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:fluxdo/models/tag_search_result.dart';
 import 'package:fluxdo/services/discourse/discourse_service.dart';
+import 'package:fluxdo/services/toast_service.dart';
 import 'package:fluxdo/widgets/common/topic_badges.dart';
 
 class TagSelectionSheet extends StatefulWidget {
@@ -121,13 +122,7 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
         _currentSelectedTags.remove(tag);
       } else {
         if (_currentSelectedTags.length >= widget.maxTags) {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('最多只能选择 ${widget.maxTags} 个标签'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
+          ToastService.showInfo('最多只能选择 ${widget.maxTags} 个标签');
           return;
         }
         _currentSelectedTags.add(tag);

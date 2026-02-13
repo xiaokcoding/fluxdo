@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../config/site_customization.dart';
+import '../../services/toast_service.dart';
 
 /// 显示外部链接确认对话框
 ///
@@ -227,13 +228,7 @@ class _ExternalLinkConfirmSheet extends StatelessWidget {
 
   void _copyUrl(BuildContext context) {
     Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('链接已复制'),
-        duration: Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ToastService.showSuccess('链接已复制');
   }
 
   _UrlInfo _parseUrl(String url) {

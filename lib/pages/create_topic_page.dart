@@ -6,6 +6,7 @@ import 'package:fluxdo/models/category.dart';
 import 'package:fluxdo/models/draft.dart';
 
 import 'package:fluxdo/providers/discourse_providers.dart';
+import 'package:fluxdo/services/toast_service.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
 import 'package:fluxdo/services/draft_controller.dart';
 import 'package:fluxdo/services/preloaded_data_service.dart';
@@ -286,30 +287,22 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     final minContentLength = ref.read(minFirstPostLengthProvider).value ?? 20;
     final contentText = _contentController.text.trim();
     if (contentText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入内容')),
-      );
+      ToastService.showInfo('请输入内容');
       return;
     }
     if (contentText.length < minContentLength) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('内容至少需要 $minContentLength 个字符')),
-      );
+      ToastService.showInfo('内容至少需要 $minContentLength 个字符');
       return;
     }
 
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择分类')),
-      );
+      ToastService.showInfo('请选择分类');
       return;
     }
 
     if (_selectedCategory!.minimumRequiredTags > 0 &&
         _selectedTags.length < _selectedCategory!.minimumRequiredTags) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('此分类至少需要 ${_selectedCategory!.minimumRequiredTags} 个标签')),
-      );
+      ToastService.showInfo('此分类至少需要 ${_selectedCategory!.minimumRequiredTags} 个标签');
       return;
     }
 

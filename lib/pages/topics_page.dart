@@ -30,6 +30,7 @@ import '../widgets/layout/master_detail_layout.dart';
 import '../widgets/common/error_view.dart';
 import '../widgets/common/loading_dialog.dart';
 import '../widgets/common/fading_edge_scroll_view.dart';
+import '../services/toast_service.dart';
 
 class ScrollToTopNotifier extends StateNotifier<int> {
   ScrollToTopNotifier() : super(0);
@@ -343,9 +344,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
       await ref.read(topicListProvider(providerKey).notifier).dismissAll();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败：$e')),
-        );
+        ToastService.showError('操作失败：$e');
       }
     }
   }

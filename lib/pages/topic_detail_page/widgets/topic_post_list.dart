@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import '../../../models/topic.dart';
 import '../../../providers/message_bus_providers.dart';
+import '../../../services/toast_service.dart';
 import '../../../utils/responsive.dart';
 import '../../../widgets/post/post_item/post_item.dart';
 import '../../../widgets/post/post_item_skeleton.dart';
@@ -362,9 +363,7 @@ class _TopicPostListState extends State<TopicPostList> {
                 isTopicOwner: detail.createdBy?.username == post.username,
                 topicHasAcceptedAnswer: detail.hasAcceptedAnswer,
                 acceptedAnswerPostNumber: detail.acceptedAnswerPostNumber,
-                onLike: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('点赞功能开发中...')),
-                ),
+                onLike: () => ToastService.showInfo('点赞功能开发中...'),
                 onReply: isLoggedIn ? () => onReply(post.postNumber == 1 ? null : post) : null,
                 onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
                 onShareAsImage: onShareAsImage != null ? () => onShareAsImage!(post) : null,

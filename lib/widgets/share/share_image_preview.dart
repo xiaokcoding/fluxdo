@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/topic.dart';
 import '../../providers/preferences_provider.dart';
 import '../../services/discourse/discourse_service.dart';
+import '../../services/toast_service.dart';
 import '../../utils/screenshot_utils.dart';
 import 'share_image_widget.dart';
 
@@ -298,22 +299,16 @@ class _ShareImagePreviewState extends ConsumerState<ShareImagePreview> {
 
       final success = await ScreenshotUtils.saveToGallery(bytes);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? '图片已保存到相册' : '保存失败，请授予相册权限'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (success) {
+          ToastService.showSuccess('图片已保存到相册');
+        } else {
+          ToastService.showError('保存失败，请授予相册权限');
+        }
       }
     } catch (e) {
       debugPrint('[ShareImagePreview] saveImage error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('保存失败，请重试'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ToastService.showError('保存失败，请重试');
       }
     } finally {
       if (mounted) {
@@ -336,12 +331,7 @@ class _ShareImagePreviewState extends ConsumerState<ShareImagePreview> {
     } catch (e) {
       debugPrint('[ShareImagePreview] shareImage error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('分享失败，请重试'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ToastService.showError('分享失败，请重试');
       }
     } finally {
       if (mounted) {
