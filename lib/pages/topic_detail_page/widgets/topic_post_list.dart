@@ -77,6 +77,17 @@ class _TopicPostListState extends State<TopicPostList> {
   int? _lastReportedPostNumber;
   bool _isThrottled = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // 首帧渲染后触发一次可见性检测，确保进入页面时即上报阅读状态
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateFirstVisiblePost();
+      }
+    });
+  }
+
   // 便捷 getter，简化 widget.xxx 访问
   TopicDetail get detail => widget.detail;
   AutoScrollController get scrollController => widget.scrollController;
