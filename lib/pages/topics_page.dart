@@ -893,7 +893,9 @@ class _TopicListState extends ConsumerState<_TopicList>
       },
       loading: () => ClipRRect(
         borderRadius: _topBorderRadius,
-        child: const TopicListSkeleton(),
+        child: const TopicListSkeleton(
+          padding: EdgeInsets.only(top: 8, bottom: 12),
+        ),
       ),
       error: (error, stack) => ClipRRect(
         borderRadius: _topBorderRadius,

@@ -11,6 +11,7 @@ import '../../services/discourse_cache_manager.dart';
 import '../../utils/time_utils.dart';
 import '../../utils/number_utils.dart';
 import '../common/emoji_text.dart';
+import '../common/smart_avatar.dart';
 import '../common/topic_badges.dart';
 
 /// 话题预览弹窗 - 长按卡片时显示
@@ -125,17 +126,26 @@ class TopicPreviewDialog extends ConsumerWidget {
 
                       const SizedBox(height: 12),
 
-                      // 分类和标签
-                      if (category != null || topic.tags.isNotEmpty)
-                        _buildCategoryAndTags(context, theme, category, faIcon, logoUrl),
+                      // 楼主信息
+                      _buildAuthorInfo(context, theme),
 
-                      const SizedBox(height: 16),
+                      // 分类和标签
+                      if (category != null || topic.tags.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildCategoryAndTags(context, theme, category, faIcon, logoUrl),
+                      ],
 
                       // 摘要内容
-                      if (topic.excerpt != null && topic.excerpt!.isNotEmpty)
+                      if (topic.excerpt != null && topic.excerpt!.isNotEmpty) ...[
+                        const SizedBox(height: 16),
                         _buildExcerpt(context, theme),
+                      ],
 
                       const SizedBox(height: 16),
+
+                      // 参与者头像
+                      if (topic.posters.length > 1)
+                        _buildParticipants(context, theme),
 
                       // 统计信息
                       _buildStats(context, theme),
@@ -207,6 +217,59 @@ class TopicPreviewDialog extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAuthorInfo(BuildContext context, ThemeData theme) {
+    String? avatarUrl;
+    String username;
+
+    if (topic.posters.isNotEmpty && topic.posters.first.user != null) {
+      final op = topic.posters.first.user!;
+      avatarUrl = op.avatarTemplate.startsWith('http')
+          ? op.getAvatarUrl(size: 56)
+          : '${AppConstants.baseUrl}${op.getAvatarUrl(size: 56)}';
+      username = op.username;
+    } else {
+      username = topic.lastPosterUsername ?? '';
+    }
+
+    return Row(
+      children: [
+        SmartAvatar(
+          imageUrl: avatarUrl,
+          radius: 14,
+          fallbackText: username,
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            username,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurface,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (topic.createdAt != null) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              '·',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Text(
+            '创建于 ${TimeUtils.formatRelativeTime(topic.createdAt)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -329,38 +392,96 @@ class TopicPreviewDialog extends ConsumerWidget {
     );
   }
 
-  Widget _buildStats(BuildContext context, ThemeData theme) {
-    return Wrap(
-      spacing: 16,
-      runSpacing: 8,
-      children: [
-        // 回复数
-        _buildStatItem(
-          context,
-          Icons.chat_bubble_outline_rounded,
-          '${(topic.postsCount - 1).clamp(0, 999999)} 条回复',
-        ),
+  Widget _buildParticipants(BuildContext context, ThemeData theme) {
+    final participants = topic.posters.take(5).toList();
 
-        // 点赞数
-        if (topic.likeCount > 0)
-          _buildStatItem(
-            context,
-            Icons.favorite_border_rounded,
-            '${NumberUtils.formatCount(topic.likeCount)} 点赞',
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Text(
+            '参与者',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
+              height: 28,
+              child: Stack(
+                children: List.generate(participants.length, (index) {
+                  final poster = participants[index];
+                  String? avatarUrl;
+                  String fallback = '';
 
-        // 浏览数
-        _buildStatItem(
-          context,
-          Icons.visibility_outlined,
-          '${NumberUtils.formatCount(topic.views)} 浏览',
+                  if (poster.user != null) {
+                    avatarUrl = poster.user!.avatarTemplate.startsWith('http')
+                        ? poster.user!.getAvatarUrl(size: 56)
+                        : '${AppConstants.baseUrl}${poster.user!.getAvatarUrl(size: 56)}';
+                    fallback = poster.user!.username;
+                  }
+
+                  return Positioned(
+                    left: index * 20.0,
+                    child: SmartAvatar(
+                      imageUrl: avatarUrl,
+                      radius: 14,
+                      fallbackText: fallback,
+                      border: Border.all(
+                        color: theme.colorScheme.surface,
+                        width: 2,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStats(BuildContext context, ThemeData theme) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatItem(
+                context,
+                Icons.chat_bubble_outline_rounded,
+                '${(topic.postsCount - 1).clamp(0, 999999)} 条回复',
+              ),
+            ),
+            Expanded(
+              child: _buildStatItem(
+                context,
+                Icons.favorite_border_rounded,
+                '${NumberUtils.formatCount(topic.likeCount)} 点赞',
+              ),
+            ),
+          ],
         ),
-
-        // 时间
-        _buildStatItem(
-          context,
-          Icons.access_time,
-          TimeUtils.formatRelativeTime(topic.lastPostedAt),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatItem(
+                context,
+                Icons.visibility_outlined,
+                '${NumberUtils.formatCount(topic.views)} 浏览',
+              ),
+            ),
+            Expanded(
+              child: _buildStatItem(
+                context,
+                Icons.access_time,
+                '最后回复 ${TimeUtils.formatRelativeTime(topic.lastPostedAt)}',
+              ),
+            ),
+          ],
         ),
       ],
     );

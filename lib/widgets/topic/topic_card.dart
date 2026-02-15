@@ -13,7 +13,7 @@ import '../../utils/time_utils.dart';
 import '../../utils/number_utils.dart';
 import '../common/emoji_text.dart';
 
-/// 话题卡片组件
+/// 话题卡片组件 — 紧凑横向布局
 class TopicCard extends ConsumerWidget {
   final Topic topic;
   final VoidCallback? onTap;
@@ -27,7 +27,7 @@ class TopicCard extends ConsumerWidget {
     this.onLongPress,
     this.isSelected = false,
   });
-  
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -39,39 +39,32 @@ class TopicCard extends ConsumerWidget {
     final categoryMap = ref.watch(categoryMapProvider).value;
     final categoryId = int.tryParse(topic.categoryId);
     final category = categoryMap?[categoryId];
-    
+
     // 图标逻辑优先级：
     // 1. 本级 FA Icon
     // 2. 本级 Logo
     // 3. 父级 FA Icon
     // 4. 父级 Logo
-    
-    // 检查 FA Icon
     IconData? faIcon = FontAwesomeHelper.getIcon(category?.icon);
-    
-    // 检查 Logo
     String? logoUrl = category?.uploadedLogo;
 
-    // 如果本级没有图标，尝试父级
     if (faIcon == null && (logoUrl == null || logoUrl.isEmpty) && category?.parentCategoryId != null) {
       final parent = categoryMap?[category!.parentCategoryId];
       faIcon = FontAwesomeHelper.getIcon(parent?.icon);
       logoUrl = parent?.uploadedLogo;
     }
-    
-
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
-      elevation: isSelected ? 0 : 0,
-      color: isSelected ? theme.colorScheme.primaryContainer.withValues(alpha:0.4) : null,
+      elevation: 0,
+      color: isSelected ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4) : null,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(
           color: isSelected
-              ? theme.colorScheme.primary.withValues(alpha:0.5)
-              : theme.colorScheme.outlineVariant.withValues(alpha:0.5),
+              ? theme.colorScheme.primary.withValues(alpha: 0.5)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -81,175 +74,161 @@ class TopicCard extends ConsumerWidget {
         child: Opacity(
           opacity: isFullyRead ? 0.5 : 1.0,
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+            padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. 标题行
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 新话题蓝点
-                    if (topic.unseen)
-                      Container(
-                        margin: const EdgeInsets.only(right: 8, top: 6),
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            height: 1.3,
-                            color: isUnread
-                                ? theme.colorScheme.onSurface
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                          children: [
-                            if (topic.closed)
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 4),
-                                  child: Icon(
-                                    Icons.lock_outline,
-                                    size: 16,
+                // 左侧：楼主头像
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: _buildOriginalPosterAvatar(context),
+                ),
+                const SizedBox(width: 10),
+                // 右侧：两行内容
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 第1行：标题 + 回复数/未读数
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text.rich(
+                              TextSpan(
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.3,
+                                  color: isUnread
+                                      ? theme.colorScheme.onSurface
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                                children: [
+                                  if (topic.closed)
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(right: 4),
+                                        child: Icon(
+                                          Icons.lock_outline,
+                                          size: 16,
+                                          color: isUnread
+                                              ? theme.colorScheme.onSurface
+                                              : theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  if (topic.hasAcceptedAnswer)
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(right: 4),
+                                        child: Icon(
+                                          Icons.check_box,
+                                          size: 16,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    )
+                                  else if (topic.canHaveAnswer)
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(right: 4),
+                                        child: Icon(
+                                          Icons.check_box_outline_blank,
+                                          size: 16,
+                                          color: theme.colorScheme.outline,
+                                        ),
+                                      ),
+                                    ),
+                                  ...EmojiText.buildEmojiSpans(context, topic.title, theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.3,
                                     color: isUnread
                                         ? theme.colorScheme.onSurface
                                         : theme.colorScheme.onSurfaceVariant,
+                                  )),
+                                  // 未读蓝点追加在标题末尾
+                                  if (topic.unseen)
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Container(
+                                        margin: const EdgeInsets.only(left: 6),
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // 右上角：回复数或未读数
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: _buildReplyOrUnread(context),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 6),
+
+                      // 第2行：分类+标签（左） + 点赞+时间（右）
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 左侧：分类和标签
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                if (category != null)
+                                  CategoryBadge(
+                                    category: category,
+                                    faIcon: faIcon,
+                                    logoUrl: logoUrl,
                                   ),
+                                ...topic.tags.map(
+                                  (tag) => TagBadge(name: tag.name),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // 右侧：点赞 + 时间
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (topic.likeCount > 0) ...[
+                                _buildStat(context, Icons.favorite_border_rounded, topic.likeCount),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '·',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              Text(
+                                TimeUtils.formatRelativeTime(topic.lastPostedAt),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                                 ),
                               ),
-                            if (topic.hasAcceptedAnswer)
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 4),
-                                  child: Icon(
-                                    Icons.check_box,
-                                    size: 16,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              )
-                            else if (topic.canHaveAnswer)
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 4),
-                                  child: Icon(
-                                    Icons.check_box_outline_blank,
-                                    size: 16,
-                                    color: theme.colorScheme.outline,
-                                  ),
-                                ),
-                              ),
-                            ...EmojiText.buildEmojiSpans(context, topic.title, theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              height: 1.3,
-                              color: isUnread
-                                  ? theme.colorScheme.onSurface
-                                  : theme.colorScheme.onSurfaceVariant,
-                            )),
-                          ],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
-                    // 未读数量徽章
-                    if (topic.unread > 0)
-                      Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${topic.unread}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                
-                const SizedBox(height: 10),
-                
-                // 2. 分类与标签行
-                if (category != null || topic.tags.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        // 分类 Badge
-                        if (category != null)
-                          CategoryBadge(
-                            category: category,
-                            faIcon: faIcon,
-                            logoUrl: logoUrl,
-                          ),
-                        
-                        // 标签 Badges
-                        ...topic.tags.map(
-                          (tag) => TagBadge(
-                            name: tag.name,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                const SizedBox(height: 14),
-
-                // 3. 底部信息栏 (头像 + 统计)
-                Row(
-                  children: [
-                    // 左侧：参与者头像
-                    if (topic.posters.isNotEmpty)
-                      _buildStackedAvatars(context, topic.posters)
-                    else if (topic.lastPosterUsername != null)
-                      CircleAvatar(
-                        radius: 12,
-                        backgroundColor: theme.colorScheme.secondaryContainer,
-                        child: Text(
-                          topic.lastPosterUsername![0].toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: theme.colorScheme.onSecondaryContainer,
-                          ),
-                        ),
-                      ),
-
-                    const Spacer(),
-
-                    // 右侧：统计数据
-                    _buildStat(context, Icons.chat_bubble_outline_rounded, (topic.postsCount - 1).clamp(0, 999999)),
-                    const SizedBox(width: 12),
-
-                    if (topic.likeCount > 0) ...[
-                      _buildStat(context, Icons.favorite_border_rounded, topic.likeCount),
-                      const SizedBox(width: 12),
                     ],
-
-                    Text(
-                      TimeUtils.formatRelativeTime(topic.lastPostedAt),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.7),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -258,62 +237,109 @@ class TopicCard extends ConsumerWidget {
       ),
     );
   }
-  
-  Widget _buildStackedAvatars(BuildContext context, List<TopicPoster> posters) {
-    // Filter valid users
-    final validPosters = posters.where((p) => p.user != null).toList();
-    if (validPosters.isEmpty) return const SizedBox();
 
-    const double avatarSize = 24.0;
-    const double overlap = 10.0;
-    
-    // Display up to 5 posters
-    final displayPosters = validPosters.take(5).toList();
-    
-    return SizedBox(
-      height: avatarSize,
-      width: avatarSize + (displayPosters.length - 1) * (avatarSize - overlap),
-      child: Stack(
-        children: List.generate(displayPosters.length, (index) {
-          final poster = displayPosters[index];
-          
-          final avatarUrl = poster.user!.avatarTemplate.startsWith('http')
-              ? poster.user!.getAvatarUrl(size: 48)
-              : '${AppConstants.baseUrl}${poster.user!.getAvatarUrl(size: 48)}';
-          return Positioned(
-            left: index * (avatarSize - overlap),
-            child: SmartAvatar(
-              imageUrl: avatarUrl,
-              radius: avatarSize / 2,
-              fallbackText: poster.user!.username,
-              border: Border.all(
-                color: Theme.of(context).colorScheme.surface,
-                width: 1.5,
-              ),
-            ),
-          );
-        }).reversed.toList(),
-      ),
-    );
-  }
-  
-  Widget _buildStat(BuildContext context, IconData icon, int count) {
+  /// 构建楼主头像
+  Widget _buildOriginalPosterAvatar(BuildContext context) {
     final theme = Theme.of(context);
+    // 取第一个 poster（Original Poster）
+    if (topic.posters.isNotEmpty) {
+      final op = topic.posters.first;
+      if (op.user != null) {
+        final avatarUrl = op.user!.avatarTemplate.startsWith('http')
+            ? op.user!.getAvatarUrl(size: 68)
+            : '${AppConstants.baseUrl}${op.user!.getAvatarUrl(size: 68)}';
+        return SmartAvatar(
+          imageUrl: avatarUrl,
+          radius: 17,
+          fallbackText: op.user!.username,
+        );
+      }
+    }
+    // fallback：用 lastPosterUsername 首字母
+    if (topic.lastPosterUsername != null) {
+      return CircleAvatar(
+        radius: 17,
+        backgroundColor: theme.colorScheme.secondaryContainer,
+        child: Text(
+          topic.lastPosterUsername![0].toUpperCase(),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSecondaryContainer,
+          ),
+        ),
+      );
+    }
+    return const SizedBox(width: 34, height: 34);
+  }
+
+  /// 回复数/未读数切换
+  Widget _buildReplyOrUnread(BuildContext context) {
+    final theme = Theme.of(context);
+    if (topic.unread > 0) {
+      // 未读数：主题色圆角徽章
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          '${topic.unread}',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    } else {
+      // 回复数：带热度颜色
+      final replies = (topic.postsCount - 1).clamp(0, 999999);
+      if (replies <= 0) return const SizedBox.shrink();
+      final heatColor = _replyHeatColor(topic, theme);
+      return _buildStat(
+        context,
+        Icons.chat_bubble_outline_rounded,
+        replies,
+        color: heatColor,
+        bold: heatColor != null,
+      );
+    }
+  }
+
+  /// 计算 likes/posts 比率
+  double _heatRatio(Topic topic) {
+    if (topic.postsCount < 10) return 0;
+    return topic.likeCount / topic.postsCount;
+  }
+
+  /// 回复数热度颜色
+  Color? _replyHeatColor(Topic topic, ThemeData theme) {
+    final ratio = _heatRatio(topic);
+    if (ratio > 2.0) return const Color(0xFFFE7A15); // 高热度-橙色
+    if (ratio > 1.0) return const Color(0xFFCF7721); // 中热度-暗橙色
+    if (ratio > 0.5) return const Color(0xFF9B764F); // 低热度-褐色
+    return null; // 默认颜色
+  }
+
+  Widget _buildStat(BuildContext context, IconData icon, int count, {Color? color, bool bold = false}) {
+    final theme = Theme.of(context);
+    final effectiveColor = color ?? theme.colorScheme.onSurfaceVariant;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
+        Icon(icon, size: 14, color: effectiveColor),
+        const SizedBox(width: 3),
         Text(
           NumberUtils.formatCount(count),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: effectiveColor,
+            fontWeight: bold ? FontWeight.w700 : null,
           ),
         ),
       ],
     );
   }
-
 }
 
 /// 紧凑型话题卡片 - 用于置顶话题
@@ -335,12 +361,12 @@ class CompactTopicCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isUnread = topic.unseen || topic.unread > 0;
-    
+
     // 获取分类信息
     final categoryMap = ref.watch(categoryMapProvider).value;
     final categoryId = int.tryParse(topic.categoryId);
     final category = categoryMap?[categoryId];
-    
+
     // 图标逻辑
     IconData? faIcon = FontAwesomeHelper.getIcon(category?.icon);
     String? logoUrl = category?.uploadedLogo;
@@ -352,18 +378,18 @@ class CompactTopicCard extends ConsumerWidget {
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       clipBehavior: Clip.antiAlias,
-      elevation: isSelected ? 0 : 0,
+      elevation: 0,
       color: isSelected
-          ? theme.colorScheme.primaryContainer.withValues(alpha:0.4)
-          : theme.colorScheme.surfaceContainerLow.withValues(alpha:0.5),
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
+          : theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
           color: isSelected
-              ? theme.colorScheme.primary.withValues(alpha:0.5)
-              : theme.colorScheme.outlineVariant.withValues(alpha:0.4),
+              ? theme.colorScheme.primary.withValues(alpha: 0.5)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
           width: 1,
         ),
       ),
@@ -381,7 +407,7 @@ class CompactTopicCard extends ConsumerWidget {
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 8),
-              
+
               // 2. 分类图标/Dot
               if (category != null) ...[
                 if (faIcon != null)
@@ -393,8 +419,8 @@ class CompactTopicCard extends ConsumerWidget {
                 else if (logoUrl != null && logoUrl.isNotEmpty)
                   Image(
                     image: discourseImageProvider(
-                      logoUrl.startsWith('http') 
-                          ? logoUrl 
+                      logoUrl.startsWith('http')
+                          ? logoUrl
                           : '${AppConstants.baseUrl}$logoUrl',
                     ),
                     width: 12,
@@ -464,7 +490,7 @@ class CompactTopicCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              
+
               const SizedBox(width: 8),
 
               // 4. 未读数或简单状态
@@ -472,7 +498,7 @@ class CompactTopicCard extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer.withValues(alpha:0.7),
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -487,12 +513,12 @@ class CompactTopicCard extends ConsumerWidget {
               else if (topic.postsCount > 1)
                  Row(
                    children: [
-                     Icon(Icons.chat_bubble_outline_rounded, size: 12, color: theme.colorScheme.outline.withValues(alpha:0.7)),
+                     Icon(Icons.chat_bubble_outline_rounded, size: 12, color: theme.colorScheme.outline.withValues(alpha: 0.7)),
                      const SizedBox(width: 2),
                      Text(
                         '${topic.postsCount - 1}',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.outline.withValues(alpha:0.7),
+                          color: theme.colorScheme.outline.withValues(alpha: 0.7),
                           fontSize: 10,
                         ),
                      ),

@@ -7,7 +7,7 @@ class TopicListSkeleton extends StatelessWidget {
 
   const TopicListSkeleton({
     super.key,
-    this.padding = const EdgeInsets.only(top: 8, bottom: 12),
+    this.padding = const EdgeInsets.all(12),
   });
 
   @override
@@ -22,7 +22,7 @@ class TopicListSkeleton extends StatelessWidget {
   }
 }
 
-/// 单个话题卡片的骨架屏
+/// 单个话题卡片的骨架屏 — 匹配紧凑横向布局
 class _TopicCardSkeleton extends StatelessWidget {
   const _TopicCardSkeleton();
 
@@ -31,59 +31,48 @@ class _TopicCardSkeleton extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(
           color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+        padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 标题行
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // 左侧：头像骨架
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: SkeletonCircle(size: 34),
+            ),
+            const SizedBox(width: 10),
+            // 右侧：两行内容
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 第1行：标题
+                  SkeletonBox(width: double.infinity, height: 18),
+                  const SizedBox(height: 4),
+                  SkeletonBox(width: 160, height: 18),
+                  const SizedBox(height: 8),
+                  // 第2行：分类标签 + 时间
+                  Row(
                     children: [
-                      SkeletonBox(width: double.infinity, height: 20),
-                      const SizedBox(height: 6),
-                      SkeletonBox(width: 200, height: 20),
+                      SkeletonBox(width: 60, height: 16, borderRadius: 4),
+                      const SizedBox(width: 6),
+                      SkeletonBox(width: 40, height: 16, borderRadius: 4),
+                      const Spacer(),
+                      SkeletonBox(width: 50, height: 14),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // 分类和标签行
-            Row(
-              children: [
-                SkeletonBox(width: 24, height: 24, borderRadius: 6),
-                const SizedBox(width: 8),
-                SkeletonBox(width: 80, height: 16),
-                const SizedBox(width: 12),
-                SkeletonBox(width: 60, height: 16),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // 底部信息行
-            Row(
-              children: [
-                SkeletonCircle(size: 24),
-                const SizedBox(width: 8),
-                SkeletonBox(width: 60, height: 14),
-                const Spacer(),
-                SkeletonBox(width: 40, height: 14),
-                const SizedBox(width: 12),
-                SkeletonBox(width: 40, height: 14),
-              ],
+                ],
+              ),
             ),
           ],
         ),
