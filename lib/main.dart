@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
@@ -43,6 +44,9 @@ import 'widgets/layout/adaptive_navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 启用 Edge-to-Edge 模式（小白条沉浸式）
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   // 桌面平台初始化 window_manager（用于视频全屏等窗口控制）
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
@@ -150,6 +154,23 @@ class MainApp extends ConsumerWidget {
             colorScheme: darkScheme,
             useMaterial3: true,
           ),
+          builder: (context, child) {
+            final brightness = Theme.of(context).brightness;
+            final iconBrightness = brightness == Brightness.light
+                ? Brightness.dark
+                : Brightness.light;
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: iconBrightness,
+                systemNavigationBarIconBrightness: iconBrightness,
+                systemNavigationBarColor:
+                    Theme.of(context).colorScheme.surface,
+                systemNavigationBarDividerColor: Colors.transparent,
+              ),
+              child: child!,
+            );
+          },
           home: const OnboardingGate(
             child: PreheatGate(child: MainPage()),
           ),
