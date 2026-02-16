@@ -159,16 +159,17 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
         final content = unorderedMatch.group(3)!;
 
         if (content.isEmpty) {
-          // 空列表项，移除列表标记
+          // 空列表项，移除列表标记（含前面的换行符，避免多余空行）
+          final removeStart = prevLineStart > 0 ? prevLineStart - 1 : prevLineStart;
           final newText = currentText.replaceRange(
-            prevLineStart,
+            removeStart,
             selection.start,
             '\n',
           );
           _previousText = newText;
           widget.controller.value = TextEditingValue(
             text: newText,
-            selection: TextSelection.collapsed(offset: prevLineStart + 1),
+            selection: TextSelection.collapsed(offset: removeStart + 1),
           );
         } else {
           // 非空列表项，添加新的列表标记
@@ -197,16 +198,17 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
         final content = orderedMatch.group(3)!;
 
         if (content.isEmpty) {
-          // 空列表项，移除列表标记
+          // 空列表项，移除列表标记（含前面的换行符，避免多余空行）
+          final removeStart = prevLineStart > 0 ? prevLineStart - 1 : prevLineStart;
           final newText = currentText.replaceRange(
-            prevLineStart,
+            removeStart,
             selection.start,
             '\n',
           );
           _previousText = newText;
           widget.controller.value = TextEditingValue(
             text: newText,
-            selection: TextSelection.collapsed(offset: prevLineStart + 1),
+            selection: TextSelection.collapsed(offset: removeStart + 1),
           );
         } else {
           // 非空列表项，添加新的列表标记（数字递增）
@@ -629,7 +631,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
           isPreview: _isPreview,
           onTogglePreview: _togglePreview,
           onApplyPangu: _applyPanguSpacing,
-          showPanguButton: true,
+          showPanguButton: !ref.watch(preferencesProvider).autoPanguSpacing,
           onToggleEmoji: _toggleEmojiPanel,
           isEmojiPanelVisible: _emojiPanelIntended,
         ),

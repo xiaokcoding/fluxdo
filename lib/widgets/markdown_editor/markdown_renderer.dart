@@ -22,7 +22,19 @@ class MarkdownBody extends StatelessWidget {
     
     // 3. 预处理 Discourse 图片格式 (![alt|WxH](url) -> HTML img)
     processedData = _processDiscourseImages(processedData);
-    
+
+    // 3.5 确保标准 markdown 图片前后有空行，使其独占段落
+    processedData = processedData.replaceAllMapped(
+      RegExp(r'(?<!\n\n)(!\[[^\]]*\]\([^)]+\))'),
+      (m) => '\n\n${m.group(1)!}',
+    );
+    processedData = processedData.replaceAllMapped(
+      RegExp(r'(!\[[^\]]*\]\([^)]+\))(?!\n\n)'),
+      (m) => '${m.group(1)!}\n\n',
+    );
+    processedData = processedData.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    processedData = processedData.trim();
+
     // 4. 预处理 [grid] 标记（转换为占位符，避免被 markdown 解析干扰）
     final gridBlocks = <String, String>{};
     processedData = _extractGridBlocks(processedData, gridBlocks);
@@ -64,8 +76,10 @@ class MarkdownBody extends StatelessWidget {
         src = '${AppConstants.baseUrl}$src';
       }
       
-      return '<img src="$src" alt="$alt" width="$width" height="$height">';
+      return '\n\n<img src="$src" alt="$alt" width="$width" height="$height">\n\n';
     });
+    // 清理多余空行（连续 3 个以上换行合并为 2 个）
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
   }
   
   

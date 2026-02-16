@@ -621,7 +621,14 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
 
       if (!mounted) return;
       // 使用 Discourse 格式：![alt|widthxheight](url)
-      insertText('${uploadResult.toMarkdown(alt: result.originalName)}\n');
+      // 图片独占一行：光标前不是换行符或文本开头时，先补一个换行
+      final selection = widget.controller.selection;
+      final text = widget.controller.text;
+      final needsLeadingNewline = selection.isValid &&
+          selection.start > 0 &&
+          text[selection.start - 1] != '\n';
+      final prefix = needsLeadingNewline ? '\n' : '';
+      insertText('$prefix${uploadResult.toMarkdown(alt: result.originalName)}\n');
     } catch (_) {
       // 错误已由 ErrorInterceptor 处理
     } finally {
