@@ -53,7 +53,8 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
       MaterialPageRoute(
         builder: (_) => TopicDetailPage(
           topicId: topic.id,
-          scrollToPostNumber: topic.lastReadPostNumber,
+          // 帖子书签跳转到被书签的帖子，话题书签使用最后阅读位置
+          scrollToPostNumber: topic.bookmarkedPostNumber ?? topic.lastReadPostNumber,
         ),
       ),
     );

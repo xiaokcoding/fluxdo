@@ -161,6 +161,36 @@ mixin _PostsMixin on _DiscourseServiceBase {
     }
   }
 
+  /// 添加话题书签
+  Future<int> bookmarkTopic(int topicId, {String? name, DateTime? reminderAt}) async {
+    try {
+      final data = <String, dynamic>{
+        'bookmarkable_id': topicId,
+        'bookmarkable_type': 'Topic',
+      };
+      if (name != null && name.isNotEmpty) {
+        data['name'] = name;
+      }
+      if (reminderAt != null) {
+        data['reminder_at'] = reminderAt.toUtc().toIso8601String();
+      }
+
+      final response = await _dio.post(
+        '/bookmarks.json',
+        data: data,
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+
+      final respData = response.data;
+      if (respData is Map && respData['id'] != null) {
+        return respData['id'] as int;
+      }
+      throw Exception('添加书签失败：响应格式异常');
+    } on DioException catch (e) {
+      _throwApiError(e);
+    }
+  }
+
   /// 添加帖子书签
   Future<int> bookmarkPost(int postId, {String? name, DateTime? reminderAt}) async {
     try {

@@ -466,6 +466,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
             );
           } else if (value == 'edit_topic') {
             _handleEditTopic();
+          } else if (value == 'bookmark') {
+            _handleToggleBookmark(notifier);
           }
         },
         itemBuilder: (context) => [
@@ -485,6 +487,23 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
                 ],
               ),
             ),
+          PopupMenuItem(
+            value: 'bookmark',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  detail.bookmarked ? Icons.bookmark : Icons.bookmark_border,
+                  size: 20,
+                  color: detail.bookmarked
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+                const SizedBox(width: 12),
+                Text(detail.bookmarked ? '取消书签' : '添加书签'),
+              ],
+            ),
+          ),
           PopupMenuItem(
             value: 'subscribe',
             child: Row(

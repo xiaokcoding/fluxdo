@@ -258,6 +258,30 @@ extension PostUpdateMethods on TopicDetailNotifier {
     ));
   }
 
+  /// 切换话题书签状态
+  Future<void> toggleTopicBookmark() async {
+    final currentDetail = state.value;
+    if (currentDetail == null) return;
+
+    final service = ref.read(discourseServiceProvider);
+
+    if (currentDetail.bookmarked) {
+      final bookmarkId = currentDetail.bookmarkId;
+      if (bookmarkId == null) return;
+      await service.deleteBookmark(bookmarkId);
+      state = AsyncValue.data(currentDetail.copyWith(
+        bookmarked: false,
+        clearBookmarkId: true,
+      ));
+    } else {
+      final newBookmarkId = await service.bookmarkTopic(currentDetail.id);
+      state = AsyncValue.data(currentDetail.copyWith(
+        bookmarked: true,
+        bookmarkId: newBookmarkId,
+      ));
+    }
+  }
+
   /// 重新加载话题元数据（只更新元数据，不刷新帖子流）
   Future<void> reloadTopicMetadata() async {
     final currentDetail = state.value;
@@ -278,6 +302,9 @@ extension PostUpdateMethods on TopicDetailNotifier {
         hasAcceptedAnswer: newDetail.hasAcceptedAnswer,
         acceptedAnswerPostNumber: newDetail.acceptedAnswerPostNumber,
         canEdit: newDetail.canEdit,
+        bookmarked: newDetail.bookmarked,
+        bookmarkId: newDetail.bookmarkId,
+        clearBookmarkId: !newDetail.bookmarked,
       ));
     } catch (e) {
       debugPrint('[TopicDetail] reloadTopicMetadata 失败: $e');

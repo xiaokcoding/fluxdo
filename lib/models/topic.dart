@@ -194,6 +194,9 @@ class Topic {
   final int? lastReadPostNumber;   // 最后阅读的帖子编号
   final int highestPostNumber;     // 最高帖子编号
 
+  // 书签相关（从书签列表 API 获取）
+  final int? bookmarkedPostNumber;  // 帖子书签对应的帖子编号（bookmarkable_type 为 Post 时有值）
+
   // 已解决问题相关
   final bool hasAcceptedAnswer;    // 话题是否有被接受的答案
   final bool canHaveAnswer;        // 话题是否可以有解决方案（用于显示未解决状态）
@@ -222,6 +225,7 @@ class Topic {
     this.newPosts = 0,
     this.lastReadPostNumber,
     this.highestPostNumber = 0,
+    this.bookmarkedPostNumber,
     this.hasAcceptedAnswer = false,
     this.canHaveAnswer = false,
   });
@@ -253,6 +257,7 @@ class Topic {
       newPosts: json['new_posts'] as int? ?? 0,
       lastReadPostNumber: json['last_read_post_number'] as int?,
       highestPostNumber: json['highest_post_number'] as int? ?? 0,
+      bookmarkedPostNumber: json['_bookmarked_post_number'] as int?,
       hasAcceptedAnswer: json['has_accepted_answer'] as bool? ?? false,
       canHaveAnswer: json['can_have_answer'] as bool? ?? false,
     );
@@ -838,6 +843,10 @@ class TopicDetail {
   // 话题权限（来自 details）
   final bool canEdit;  // 是否可以编辑话题元数据（标题、分类、标签）
 
+  // 话题书签相关
+  final bool bookmarked;                // 话题是否已被书签（Topic 级别）
+  final int? bookmarkId;                // 话题书签 ID（用于删除书签）
+
   // 已解决问题相关
   final bool hasAcceptedAnswer;         // 话题是否有被接受的答案
   final int? acceptedAnswerPostNumber;  // 被接受答案的帖子编号
@@ -870,6 +879,8 @@ class TopicDetail {
     this.notificationLevel = TopicNotificationLevel.regular,
     this.archetype = 'regular',
     this.canEdit = false,
+    this.bookmarked = false,
+    this.bookmarkId,
     this.hasAcceptedAnswer = false,
     this.acceptedAnswerPostNumber,
   });
@@ -901,6 +912,20 @@ class TopicDetail {
       acceptedAnswerPostNumber = acceptedPost?.postNumber;
     }
 
+    // 解析话题级别书签：从 bookmarks 数组中找 bookmarkable_type == 'Topic' 的条目
+    bool topicBookmarked = false;
+    int? topicBookmarkId;
+    final bookmarksList = json['bookmarks'] as List<dynamic>?;
+    if (bookmarksList != null) {
+      for (final b in bookmarksList) {
+        if (b is Map<String, dynamic> && b['bookmarkable_type'] == 'Topic') {
+          topicBookmarked = true;
+          topicBookmarkId = b['id'] as int?;
+          break;
+        }
+      }
+    }
+
     return TopicDetail(
       id: json['id'] as int,
       title: json['title'] as String? ?? '',
@@ -930,6 +955,8 @@ class TopicDetail {
         (json['details'] as Map<String, dynamic>?)?['notification_level'] as int?,
       ),
       canEdit: (json['details'] as Map<String, dynamic>?)?['can_edit'] as bool? ?? false,
+      bookmarked: topicBookmarked,
+      bookmarkId: topicBookmarkId,
       hasAcceptedAnswer: hasAcceptedAnswer,
       acceptedAnswerPostNumber: acceptedAnswerPostNumber,
     );
@@ -961,6 +988,9 @@ class TopicDetail {
     TopicNotificationLevel? notificationLevel,
     String? archetype,
     bool? canEdit,
+    bool? bookmarked,
+    int? bookmarkId,
+    bool clearBookmarkId = false,
     bool? hasAcceptedAnswer,
     int? acceptedAnswerPostNumber,
   }) {
@@ -989,6 +1019,8 @@ class TopicDetail {
       notificationLevel: notificationLevel ?? this.notificationLevel,
       archetype: archetype ?? this.archetype,
       canEdit: canEdit ?? this.canEdit,
+      bookmarked: bookmarked ?? this.bookmarked,
+      bookmarkId: clearBookmarkId ? null : (bookmarkId ?? this.bookmarkId),
       hasAcceptedAnswer: hasAcceptedAnswer ?? this.hasAcceptedAnswer,
       acceptedAnswerPostNumber: acceptedAnswerPostNumber ?? this.acceptedAnswerPostNumber,
     );
@@ -1061,6 +1093,14 @@ class TopicListResponse {
           // 书签对象中的 id 是书签 ID，topic_id 才是主题 ID
           if (map.containsKey('topic_id')) {
             map['id'] = map['topic_id'];
+          }
+
+          // 帖子书签：保留 linked_post_number 供跳转使用
+          if (map['bookmarkable_type'] == 'Post') {
+            final linkedPostNumber = map['linked_post_number'] as int?;
+            if (linkedPostNumber != null) {
+              map['_bookmarked_post_number'] = linkedPostNumber;
+            }
           }
 
           // 映射关键字段以适配 TopicCard 显示

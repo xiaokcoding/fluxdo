@@ -131,6 +131,22 @@ extension _UserActions on _TopicDetailPageState {
     }
   }
 
+  Future<void> _handleToggleBookmark(TopicDetailNotifier notifier) async {
+    final detail = ref.read(topicDetailProvider(_params)).value;
+    if (detail == null) return;
+
+    final wasBookmarked = detail.bookmarked;
+    try {
+      await notifier.toggleTopicBookmark();
+      if (mounted) {
+        ToastService.showSuccess(wasBookmarked ? '已取消书签' : '已添加书签');
+      }
+    } catch (e) {
+      // 错误已由 ErrorInterceptor 处理
+      debugPrint('[TopicDetail] 切换书签失败: $e');
+    }
+  }
+
   void _handleVoteChanged(int newVoteCount, bool userVoted) {
     final params = _params;
     ref.read(topicDetailProvider(params).notifier).updateTopicVote(newVoteCount, userVoted);
