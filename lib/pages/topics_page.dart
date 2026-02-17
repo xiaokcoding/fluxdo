@@ -394,7 +394,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
             currentTags: currentTags,
             currentCategory: currentCategory,
             onSortChanged: (sort) {
-              ref.read(topicSortProvider.notifier).state = sort;
+              ref.read(topicSortProvider.notifier).setSort(sort);
             },
             onTagRemoved: (tag) {
               final tags = ref.read(tabTagsProvider(currentCategoryId));

@@ -5,6 +5,7 @@ import '../models/category.dart';
 import '../providers/discourse_providers.dart';
 import '../providers/selected_topic_provider.dart';
 import '../providers/preferences_provider.dart';
+import '../providers/topic_sort_provider.dart';
 import '../utils/pagination_helper.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/topic/sort_and_tags_bar.dart';
@@ -38,8 +39,8 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
   Object? _error;
   String? _parentSlug;
 
-  // 本地排序和标签状态（独立于首页）
-  TopicListFilter _currentSort = TopicListFilter.latest;
+  // 本地排序和标签状态（独立于首页，初始值从持久化偏好读取）
+  late TopicListFilter _currentSort;
   List<String> _selectedTags = [];
 
   static final _paginationHelper = PaginationHelpers.forTopics<Topic>(
@@ -49,6 +50,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
   @override
   void initState() {
     super.initState();
+    _currentSort = ref.read(topicSortProvider);
     _scrollController.addListener(_onScroll);
     _resolveParentSlug();
     _loadTopics();
@@ -184,6 +186,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
   void _setSort(TopicListFilter sort) {
     if (sort == _currentSort) return;
     setState(() => _currentSort = sort);
+    ref.read(topicSortProvider.notifier).setSort(sort);
     _loadTopics();
   }
 
