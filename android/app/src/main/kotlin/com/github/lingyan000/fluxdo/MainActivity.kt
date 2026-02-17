@@ -3,6 +3,7 @@ package com.github.lingyan000.fluxdo
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
@@ -10,6 +11,12 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 强制重新分发 WindowInsets，修复 Android 15 旋转后 FlutterView 高度不更新的问题
+        window.decorView.requestApplyInsets()
+    }
     private val CHANNEL = "com.github.lingyan000.fluxdo/browser"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
