@@ -61,16 +61,23 @@ void configurePlatformAdapter(Dio dio) {
     _currentAdapterType = AdapterType.network;
   } else {
     // 默认: 使用 NativeAdapter
-    // 注意: 调试模式下使用 IOHttpClientAdapter 避免热重启崩溃
     if (kDebugMode && (Platform.isMacOS || Platform.isIOS)) {
-      // 调试模式下使用默认适配器，避免 native_dio_adapter 热重启崩溃
+      // 调试模式下使用默认适配器（IOHttpClientAdapter），避免 NativeAdapter 热重启崩溃
       debugPrint('[DIO] Using IOHttpClientAdapter on ${Platform.operatingSystem} (debug mode)');
-      _currentAdapterType = AdapterType.native;
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      // Release 模式: URLSession 默认会自动管理 Cookie（httpShouldSetCookies=true），
+      // 会与 AppCookieManager 拦截器冲突。禁用 URLSession 的 Cookie 自动管理。
+      final config = URLSessionConfiguration.ephemeralSessionConfiguration();
+      config.httpShouldSetCookies = false;
+      dio.httpClientAdapter = NativeAdapter(
+        createCupertinoConfiguration: () => config,
+      );
+      debugPrint('[DIO] Using NativeAdapter on ${Platform.operatingSystem}');
     } else {
       dio.httpClientAdapter = NativeAdapter();
       debugPrint('[DIO] Using NativeAdapter on ${Platform.operatingSystem}');
-      _currentAdapterType = AdapterType.native;
     }
+    _currentAdapterType = AdapterType.native;
   }
 }
 

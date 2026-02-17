@@ -10,7 +10,9 @@ class CookieSyncService {
 
   static const String _csrfTokenKey = 'linux_do_csrf_token';
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+    mOptions: MacOsOptions(useDataProtectionKeyChain: false),
+  );
 
   String? _csrfToken;
 

@@ -56,11 +56,23 @@ class CfChallengeInterceptor extends Interceptor {
       final result = await cfService.showManualVerify(null, forceForeground);
 
       if (result == true) {
+        // 等待 Cookie 从 WebView 引擎 flush 到系统 HTTPCookieStorage
+        // iOS/macOS 的 WKWebView 异步写入，需要足够时间
+        await Future.delayed(const Duration(milliseconds: 1500));
+
         // CF 验证成功后从 WebView 同步 Cookie 回 CookieJar
         await cookieJarService.syncFromWebView();
 
-        // 验证 cf_clearance 是否真的保存成功
-        final cfClearance = await cookieJarService.getCfClearance();
+        // 验证 cf_clearance 是否真的保存成功，最多重试 3 次
+        String? cfClearance;
+        for (var i = 0; i < 3; i++) {
+          cfClearance = await cookieJarService.getCfClearance();
+          if (cfClearance != null && cfClearance.isNotEmpty) break;
+          debugPrint('[Dio] cf_clearance not found, retry ${i + 1}/3...');
+          await Future.delayed(const Duration(milliseconds: 500));
+          await cookieJarService.syncFromWebView();
+        }
+
         if (cfClearance == null || cfClearance.isEmpty) {
           debugPrint('[Dio] cf_clearance not found after sync, entering cooldown');
           CfChallengeLogger.log('[INTERCEPTOR] cf_clearance not found after sync');
@@ -69,9 +81,6 @@ class CfChallengeInterceptor extends Interceptor {
           throw CfChallengeException();
         }
         CfChallengeLogger.log('[INTERCEPTOR] cf_clearance verified: ${cfClearance.length} chars');
-
-        // 等待足够时间让 Cookie 完全生效，避免 SSL 握手失败
-        await Future.delayed(const Duration(milliseconds: 1500));
 
         // 重试请求，并标记跳过 CF 验证拦截（防止循环）
         try {

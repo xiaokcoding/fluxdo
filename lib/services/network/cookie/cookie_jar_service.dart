@@ -120,8 +120,16 @@ class CookieJarService {
           }
         }
 
-        final cookie = io.Cookie(wc.name, wc.value)
-          ..path = wc.path ?? '/';
+        // Dart Cookie 构造函数对值有严格校验（不允许双引号等），
+        // 但浏览器允许 JSON 等特殊值。用 fromSetCookieValue 绕过校验保留原始值。
+        io.Cookie cookie;
+        try {
+          cookie = io.Cookie(wc.name, wc.value)
+            ..path = wc.path ?? '/';
+        } catch (_) {
+          cookie = io.Cookie.fromSetCookieValue('${wc.name}=${wc.value}')
+            ..path = wc.path ?? '/';
+        }
 
         if (domainAttr != null) {
           cookie.domain = domainAttr;

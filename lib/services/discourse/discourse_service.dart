@@ -158,7 +158,9 @@ class DiscourseService extends _DiscourseServiceBase
             'X-Requested-With': 'XMLHttpRequest',
           },
         ),
-        _storage = const FlutterSecureStorage() {
+        _storage = const FlutterSecureStorage(
+          mOptions: MacOsOptions(useDataProtectionKeyChain: false),
+        ) {
     _initInterceptors();
   }
 
