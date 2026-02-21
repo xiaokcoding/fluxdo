@@ -7,6 +7,26 @@ import 'package:path/path.dart' as path;
 import '../../../constants.dart';
 import '../../cf_challenge_logger.dart';
 
+/// Cookie 值编解码工具
+/// Dart 的 io.Cookie 严格遵循 RFC 6265，禁止值中包含双引号、逗号等字符，
+/// 但浏览器允许这些字符（如 g_state 的 JSON 值）。
+/// 对不合规的值进行 URL 编码后加前缀存储，在所有出口处解码还原。
+class CookieValueCodec {
+  static const _prefix = '~enc~';
+
+  /// 编码不合规的 cookie 值
+  static String encode(String value) =>
+      '$_prefix${Uri.encodeComponent(value)}';
+
+  /// 解码还原浏览器原始值；未编码的值原样返回
+  static String decode(String value) {
+    if (value.startsWith(_prefix)) {
+      return Uri.decodeComponent(value.substring(_prefix.length));
+    }
+    return value;
+  }
+}
+
 /// 统一的 Cookie 管理服务
 /// 使用 cookie_jar 库管理 Cookie，支持持久化和 WebView 同步
 class CookieJarService {
@@ -120,14 +140,15 @@ class CookieJarService {
           }
         }
 
-        // Dart Cookie 构造函数对值有严格校验（不允许双引号等），
-        // 但浏览器允许 JSON 等特殊值。用 fromSetCookieValue 绕过校验保留原始值。
+        // Dart Cookie 构造函数严格遵循 RFC 6265，禁止双引号、逗号等字符，
+        // 但浏览器允许这些字符（如 g_state 的 JSON 值）。
+        // 对不合规的值使用 CookieValueCodec 编码后存储，在出口处解码还原。
         io.Cookie cookie;
         try {
           cookie = io.Cookie(wc.name, wc.value)
             ..path = wc.path ?? '/';
         } catch (_) {
-          cookie = io.Cookie.fromSetCookieValue('${wc.name}=${wc.value}')
+          cookie = io.Cookie(wc.name, CookieValueCodec.encode(wc.value))
             ..path = wc.path ?? '/';
         }
 
@@ -201,7 +222,7 @@ class CookieJarService {
         await _webViewCookieManager.setCookie(
           url: WebUri(AppConstants.baseUrl),
           name: cookie.name,
-          value: cookie.value,
+          value: CookieValueCodec.decode(cookie.value),
           domain: cookie.domain,
           path: cookie.path ?? '/',
           isSecure: cookie.secure,
@@ -226,7 +247,7 @@ class CookieJarService {
 
       for (final cookie in cookies) {
         if (cookie.name == name) {
-          return cookie.value;
+          return CookieValueCodec.decode(cookie.value);
         }
       }
     } catch (e) {
@@ -309,7 +330,7 @@ class CookieJarService {
 
       if (cookies.isEmpty) return null;
 
-      return cookies.map((c) => '${c.name}=${c.value}').join('; ');
+      return cookies.map((c) => '${c.name}=${CookieValueCodec.decode(c.value)}').join('; ');
     } catch (e) {
       debugPrint('[CookieJar] Failed to get cookie header: $e');
       return null;

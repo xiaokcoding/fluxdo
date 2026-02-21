@@ -270,15 +270,39 @@ class _TopicPostListState extends State<TopicPostList> {
               },
             ),
 
-          // 中心帖子（带 centerKey）
-          _buildCenterSliver(context, theme, posts, hasFirstPost),
-
-          // After-center 帖子（SliverList.builder 实现虚拟化回收）
-          if (centerPostIndex + 1 < posts.length)
+          // 中心帖子 + after-center 帖子（合并为一个 SliverList.builder）
+          // SliverList 不会回收最后一个 child，所以必须合并，确保 center 帖子
+          // 是多 item 列表中的一项，滚出视口后能被正常回收。
+          // centerPostIndex == 0 且有 header 时，用 SliverMainAxisGroup 将
+          // header 和帖子列表组合为 center，保证 header 默认可见。
+          if (centerPostIndex == 0 && hasFirstPost)
+            SliverMainAxisGroup(
+              key: centerKey,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _wrapContent(
+                    context,
+                    TopicDetailHeader(
+                      detail: detail,
+                      headerKey: headerKey,
+                      onVoteChanged: onVoteChanged,
+                      onNotificationLevelChanged: onNotificationLevelChanged,
+                    ),
+                  ),
+                ),
+                SliverList.builder(
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) =>
+                      _buildPostItem(context, theme, posts[index], index),
+                ),
+              ],
+            )
+          else
             SliverList.builder(
-              itemCount: posts.length - centerPostIndex - 1,
+              key: centerKey,
+              itemCount: posts.length - centerPostIndex,
               itemBuilder: (context, index) {
-                final postIndex = centerPostIndex + 1 + index;
+                final postIndex = centerPostIndex + index;
                 return _buildPostItem(context, theme, posts[postIndex], postIndex);
               },
             ),
@@ -310,116 +334,50 @@ class _TopicPostListState extends State<TopicPostList> {
     );
   }
 
-  /// 构建中心帖子 Sliver
-  Widget _buildCenterSliver(BuildContext context, ThemeData theme, List<Post> posts, bool hasFirstPost) {
-    if (centerPostIndex == 0 && hasFirstPost) {
-      // 话题 Header 和第一个帖子组合为 center
-      return SliverMainAxisGroup(
-        key: centerKey,
-        slivers: [
-          SliverToBoxAdapter(
-            child: _wrapContent(
-              context,
-              TopicDetailHeader(
-                detail: detail,
-                headerKey: headerKey,
-                onVoteChanged: onVoteChanged,
-                onNotificationLevelChanged: onNotificationLevelChanged,
-              ),
-            ),
-          ),
-          _buildPostSliver(context, theme, posts[0], 0),
-        ],
-      );
-    }
-    return _buildPostSliver(
-      context, theme, posts[centerPostIndex], centerPostIndex,
-      key: centerKey,
-    );
-  }
-
-  /// 构建单个帖子 Sliver（用于 center sliver，仍需要 SliverToBoxAdapter）
-  Widget _buildPostSliver(BuildContext context, ThemeData theme, Post post, int postIndex, {Key? key}) {
-    return SliverToBoxAdapter(
-      key: key,
-      child: _buildPostItem(context, theme, post, postIndex),
-    );
-  }
-
   /// 构建单个帖子 Widget（供 SliverList.builder 的 itemBuilder 使用）
   Widget _buildPostItem(BuildContext context, ThemeData theme, Post post, int postIndex) {
     final showDivider = dividerPostIndex == postIndex;
 
-    return _SliverDisposeTracker(
-      postNumber: post.postNumber,
-      child: _wrapContent(
-        context,
-        AutoScrollTag(
-          key: ValueKey('post-${post.postNumber}'),
-          controller: scrollController,
-          index: postIndex,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showDivider)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-                  child: Text(
-                    '上次看到这里',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
+    return _wrapContent(
+      context,
+      AutoScrollTag(
+        key: ValueKey('post-${post.postNumber}'),
+        controller: scrollController,
+        index: postIndex,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showDivider)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                child: Text(
+                  '上次看到这里',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              PostItem(
-                post: post,
-                topicId: detail.id,
-                highlight: highlightPostNumber == post.postNumber,
-                isTopicOwner: detail.createdBy?.username == post.username,
-                topicHasAcceptedAnswer: detail.hasAcceptedAnswer,
-                acceptedAnswerPostNumber: detail.acceptedAnswerPostNumber,
-                onLike: () => ToastService.showInfo('点赞功能开发中...'),
-                onReply: isLoggedIn ? () => onReply(post.postNumber == 1 ? null : post) : null,
-                onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
-                onShareAsImage: onShareAsImage != null ? () => onShareAsImage!(post) : null,
-                onRefreshPost: onRefreshPost,
-                onJumpToPost: onJumpToPost,
-                onSolutionChanged: onSolutionChanged,
               ),
-            ],
-          ),
+            PostItem(
+              post: post,
+              topicId: detail.id,
+              highlight: highlightPostNumber == post.postNumber,
+              isTopicOwner: detail.createdBy?.username == post.username,
+              topicHasAcceptedAnswer: detail.hasAcceptedAnswer,
+              acceptedAnswerPostNumber: detail.acceptedAnswerPostNumber,
+              onLike: () => ToastService.showInfo('点赞功能开发中...'),
+              onReply: isLoggedIn ? () => onReply(post.postNumber == 1 ? null : post) : null,
+              onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
+              onShareAsImage: onShareAsImage != null ? () => onShareAsImage!(post) : null,
+              onRefreshPost: onRefreshPost,
+              onJumpToPost: onJumpToPost,
+              onSolutionChanged: onSolutionChanged,
+            ),
+          ],
         ),
       ),
     );
   }
-}
-
-/// 临时诊断 widget：跟踪 SliverList.builder 是否真正 dispose 了帖子
-/// TODO: 确认 SliverList.builder 回收正常后删除
-class _SliverDisposeTracker extends StatefulWidget {
-  final int postNumber;
-  final Widget child;
-  const _SliverDisposeTracker({required this.postNumber, required this.child});
-  @override
-  State<_SliverDisposeTracker> createState() => _SliverDisposeTrackerState();
-}
-
-class _SliverDisposeTrackerState extends State<_SliverDisposeTracker> {
-  @override
-  void initState() {
-    super.initState();
-    debugPrint('[SliverTracker] #${widget.postNumber} created');
-  }
-
-  @override
-  void dispose() {
-    debugPrint('[SliverTracker] #${widget.postNumber} disposed');
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }

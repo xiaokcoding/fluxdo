@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 
+import 'cookie_jar_service.dart';
+
 /// App-specific CookieManager.
 /// Avoids saving Set-Cookie into redirect target domains by default.
 class AppCookieManager extends Interceptor {
@@ -35,7 +37,7 @@ class AppCookieManager extends Interceptor {
         return b.path!.length.compareTo(a.path!.length);
       }
     });
-    return cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
+    return cookies.map((cookie) => '${cookie.name}=${CookieValueCodec.decode(cookie.value)}').join('; ');
   }
 
   @override
