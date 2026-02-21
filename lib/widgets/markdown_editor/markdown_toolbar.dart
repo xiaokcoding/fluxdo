@@ -405,6 +405,49 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     widget.focusNode?.requestFocus();
   }
 
+  /// 插入剧透标记（带占位符并自动选中）
+  void insertSpoiler() {
+    final selection = widget.controller.selection;
+    final text = widget.controller.text;
+
+    if (!selection.isValid || selection.start == selection.end) {
+      // 没有选中文本，插入带占位符的剧透
+      const placeholder = '剧透内容';
+      final spoiler = '[spoiler]$placeholder[/spoiler]';
+      final insertPos = selection.isValid ? selection.start : text.length;
+      final newText = text.replaceRange(insertPos, insertPos, spoiler);
+
+      // 选中占位符
+      widget.controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: insertPos + '[spoiler]'.length,
+          extentOffset: insertPos + '[spoiler]'.length + placeholder.length,
+        ),
+      );
+    } else {
+      // 有选中文本，用剧透标记包裹
+      final selectedText = selection.textInside(text);
+      final spoiler = '[spoiler]$selectedText[/spoiler]';
+      final newText = text.replaceRange(
+        selection.start,
+        selection.end,
+        spoiler,
+      );
+
+      // 选中剧透内容
+      widget.controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: selection.start + '[spoiler]'.length,
+          extentOffset: selection.start + '[spoiler]'.length + selectedText.length,
+        ),
+      );
+    }
+
+    widget.focusNode?.requestFocus();
+  }
+
   /// 插入行内代码（带占位符并自动选中）
   void insertInlineCode() {
     final selection = widget.controller.selection;
@@ -729,6 +772,11 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
                         _ToolbarButton(
                           icon: FontAwesomeIcons.strikethrough,
                           onPressed: insertStrikethrough,
+                        ),
+                        _ToolbarButton(
+                          icon: FontAwesomeIcons.eyeSlash,
+                          onPressed: insertSpoiler,
+                          tooltip: '剧透',
                         ),
                         _ToolbarButton(
                           icon: FontAwesomeIcons.listUl,

@@ -35,20 +35,27 @@ class MarkdownBody extends StatelessWidget {
     processedData = processedData.replaceAll(RegExp(r'\n{3,}'), '\n\n');
     processedData = processedData.trim();
 
-    // 4. 预处理 [grid] 标记（转换为占位符，避免被 markdown 解析干扰）
+    // 4. 预处理 [spoiler] 标记（转换为占位符或行内 HTML）
+    final spoilerBlocks = <String, String>{};
+    processedData = _processSpoilerBlocks(processedData, spoilerBlocks);
+
+    // 5. 预处理 [grid] 标记（转换为占位符，避免被 markdown 解析干扰）
     final gridBlocks = <String, String>{};
     processedData = _extractGridBlocks(processedData, gridBlocks);
 
-    // 5. 使用 GitHub Flavored Markdown 扩展集转换为 HTML
+    // 6. 使用 GitHub Flavored Markdown 扩展集转换为 HTML
     var html = md.markdownToHtml(
       processedData,
       extensionSet: md.ExtensionSet.gitHubFlavored,
     );
-    
-    // 6. 后处理：将 grid 占位符替换回 div.d-image-grid 包裹的图片
+
+    // 7. 后处理：将 grid 占位符替换回 div.d-image-grid 包裹的图片
     html = _restoreGridBlocks(html, gridBlocks);
+
+    // 8. 后处理：将 spoiler 占位符替换回 div.spoiler
+    html = _restoreSpoilerBlocks(html, spoilerBlocks);
     
-    // 7. 使用 DiscourseHtmlContent 渲染，与帖子显示保持一致
+    // 9. 使用 DiscourseHtmlContent 渲染，与帖子显示保持一致
     return DiscourseHtmlContent(
       html: html,
       textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -79,10 +86,70 @@ class MarkdownBody extends StatelessWidget {
       return '\n\n<img src="$src" alt="$alt" width="$width" height="$height">\n\n';
     });
     // 清理多余空行（连续 3 个以上换行合并为 2 个）
-    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    // text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
   }
   
   
+  /// 预处理 [spoiler]...[/spoiler] 标记
+  /// 块级 spoiler（内容含换行）使用占位符模式，行内 spoiler 直接替换为 HTML
+  String _processSpoilerBlocks(String text, Map<String, String> spoilerBlocks) {
+    final spoilerRegex = RegExp(
+      r'\[spoiler\](.*?)\[/spoiler\]',
+      multiLine: true,
+      dotAll: true,
+    );
+
+    int index = 0;
+    return text.replaceAllMapped(spoilerRegex, (match) {
+      final content = match.group(1) ?? '';
+
+      if (content.contains('\n')) {
+        // 块级 spoiler：使用占位符，避免 markdown 解析器干扰
+        final placeholder = '<!--SPOILER_PLACEHOLDER_$index-->';
+        spoilerBlocks[placeholder] = content.trim();
+        index++;
+        return placeholder;
+      } else {
+        // 行内 spoiler：直接转为 HTML
+        return '<span class="spoiler">${_escapeHtml(content)}</span>';
+      }
+    });
+  }
+
+  /// 后处理：将 spoiler 占位符替换为 div.spoiler
+  String _restoreSpoilerBlocks(String html, Map<String, String> spoilerBlocks) {
+    var result = html;
+
+    for (final entry in spoilerBlocks.entries) {
+      final placeholder = entry.key;
+      final markdownContent = entry.value;
+
+      // 将 spoiler 内的 markdown 转成 HTML
+      final spoilerHtml = md.markdownToHtml(
+        markdownContent,
+        extensionSet: md.ExtensionSet.gitHubFlavored,
+      );
+
+      final replacement = '<div class="spoiler">$spoilerHtml</div>';
+
+      // 替换占位符（可能被 <p> 包裹了）
+      result = result.replaceAll('<p>$placeholder</p>', replacement);
+      result = result.replaceAll(placeholder, replacement);
+    }
+
+    return result;
+  }
+
+  /// 转义 HTML 特殊字符
+  String _escapeHtml(String text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+  }
+
   /// 提取 [grid]...[/grid] 块，用唯一占位符替换
   /// 这样 markdown 解析器会正常处理其中的图片为 <img> 标签
   String _extractGridBlocks(String text, Map<String, String> gridBlocks) {
