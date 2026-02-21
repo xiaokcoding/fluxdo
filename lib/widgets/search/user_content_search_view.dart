@@ -6,6 +6,8 @@ import '../common/loading_spinner.dart';
 import '../../pages/topic_detail_page/topic_detail_page.dart';
 import 'search_filter_panel.dart';
 import 'search_post_card.dart';
+import 'search_preview_dialog.dart';
+import '../../providers/preferences_provider.dart';
 
 /// 用户内容搜索结果视图
 /// 封装通用的搜索结果展示逻辑，避免在各个页面中重复代码
@@ -236,6 +238,7 @@ class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
               }
 
               final post = searchState.results[index];
+              final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
               return SearchPostCard(
                 post: post,
                 onTap: () {
@@ -252,6 +255,26 @@ class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
                     );
                   }
                 },
+                onLongPress: enableLongPress
+                    ? () => SearchPreviewDialog.show(
+                          context,
+                          post: post,
+                          onOpen: () {
+                            final topic = post.topic;
+                            if (topic != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TopicDetailPage(
+                                    topicId: topic.id,
+                                    scrollToPostNumber: post.postNumber,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        )
+                    : null,
               );
             },
           ),

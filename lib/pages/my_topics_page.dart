@@ -6,8 +6,9 @@ import '../providers/discourse_providers.dart';
 import '../providers/user_content_search_provider.dart';
 import '../widgets/search/searchable_app_bar.dart';
 import '../widgets/search/user_content_search_view.dart';
-import '../widgets/topic/topic_card.dart';
+import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
+import '../providers/preferences_provider.dart';
 import '../widgets/common/error_view.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 
@@ -155,9 +156,13 @@ class _MyTopicsPageState extends ConsumerState<MyTopicsPage> {
               }
 
               final topic = topics[index];
-              return TopicCard(
+              final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
+              return buildTopicItem(
+                context: context,
                 topic: topic,
+                isSelected: false,
                 onTap: () => _onItemTap(topic),
+                enableLongPress: enableLongPress,
               );
             },
           );

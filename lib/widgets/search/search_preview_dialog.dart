@@ -3,35 +3,33 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../models/topic.dart';
 import '../../models/category.dart';
+import '../../models/search_result.dart';
 import '../../providers/discourse_providers.dart';
 import '../../providers/preferences_provider.dart';
 import '../../constants.dart';
 import '../../utils/font_awesome_helper.dart';
 import '../../utils/share_utils.dart';
-import '../../services/discourse_cache_manager.dart';
-import '../../utils/time_utils.dart';
 import '../../utils/number_utils.dart';
-import '../common/emoji_text.dart';
+import '../../services/discourse_cache_manager.dart';
 import '../common/smart_avatar.dart';
 import '../common/topic_badges.dart';
 
-/// 话题预览弹窗 - 长按卡片时显示
-class TopicPreviewDialog extends ConsumerWidget {
-  final Topic topic;
+/// 搜索结果预览弹窗 - 长按搜索卡片时显示
+class SearchPreviewDialog extends ConsumerWidget {
+  final SearchPost post;
   final VoidCallback? onOpen;
 
-  const TopicPreviewDialog({
+  const SearchPreviewDialog({
     super.key,
-    required this.topic,
+    required this.post,
     this.onOpen,
   });
 
   /// 显示预览弹窗
   static Future<void> show(
     BuildContext context, {
-    required Topic topic,
+    required SearchPost post,
     VoidCallback? onOpen,
   }) {
     // 触觉反馈
@@ -44,8 +42,8 @@ class TopicPreviewDialog extends ConsumerWidget {
       barrierColor: Colors.black54,
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (context, animation, secondaryAnimation) {
-        return TopicPreviewDialog(
-          topic: topic,
+        return SearchPreviewDialog(
+          post: post,
           onOpen: onOpen,
         );
       },
@@ -71,11 +69,15 @@ class TopicPreviewDialog extends ConsumerWidget {
     final screenSize = MediaQuery.of(context).size;
     final maxWidth = screenSize.width * 0.9;
     final maxHeight = screenSize.height * 0.7;
+    final topic = post.topic;
 
     // 获取分类信息
     final categoryMap = ref.watch(categoryMapProvider).value;
-    final categoryId = int.tryParse(topic.categoryId);
-    final category = categoryMap?[categoryId];
+    final categoryId = topic?.categoryId;
+    Category? category;
+    if (categoryId != null && categoryMap != null) {
+      category = categoryMap[categoryId];
+    }
 
     // 图标逻辑
     IconData? faIcon = FontAwesomeHelper.getIcon(category?.icon);
@@ -125,33 +127,31 @@ class TopicPreviewDialog extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 标题
-                      _buildTitle(context, theme),
+                      if (topic != null) _buildTitle(context, theme, topic),
 
                       const SizedBox(height: 12),
 
-                      // 楼主信息
+                      // 作者信息
                       _buildAuthorInfo(context, theme),
 
                       // 分类和标签
-                      if (category != null || topic.tags.isNotEmpty) ...[
+                      if (category != null ||
+                          (topic != null && topic.tags.isNotEmpty)) ...[
                         const SizedBox(height: 12),
-                        _buildCategoryAndTags(context, theme, category, faIcon, logoUrl),
+                        _buildCategoryAndTags(
+                            context, theme, category, faIcon, logoUrl, topic),
                       ],
 
                       // 摘要内容
-                      if (topic.excerpt != null && topic.excerpt!.isNotEmpty) ...[
+                      if (post.blurb.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        _buildExcerpt(context, theme),
+                        _buildBlurb(context, theme),
                       ],
 
                       const SizedBox(height: 16),
 
-                      // 参与者头像
-                      if (topic.posters.length > 1)
-                        _buildParticipants(context, theme),
-
                       // 统计信息
-                      _buildStats(context, theme),
+                      _buildStats(context, theme, topic),
                     ],
                   ),
                 ),
@@ -166,7 +166,8 @@ class TopicPreviewDialog extends ConsumerWidget {
     );
   }
 
-  Widget _buildTitle(BuildContext context, ThemeData theme) {
+  Widget _buildTitle(
+      BuildContext context, ThemeData theme, SearchTopic topic) {
     return Text.rich(
       TextSpan(
         style: theme.textTheme.titleLarge?.copyWith(
@@ -186,68 +187,38 @@ class TopicPreviewDialog extends ConsumerWidget {
                 ),
               ),
             ),
-          if (topic.pinned)
+          if (topic.archived)
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
               child: Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: Icon(
-                  Icons.push_pin_rounded,
+                  Icons.archive_outlined,
                   size: 20,
-                  color: theme.colorScheme.primary,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
-          if (topic.hasAcceptedAnswer)
-            WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Icon(
-                  Icons.check_box,
-                  size: 20,
-                  color: Colors.green,
-                ),
-              ),
-            ),
-          ...EmojiText.buildEmojiSpans(
-            context,
-            topic.title,
-            theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              height: 1.3,
-            ),
-          ),
+          TextSpan(text: topic.title),
         ],
       ),
     );
   }
 
   Widget _buildAuthorInfo(BuildContext context, ThemeData theme) {
-    String? avatarUrl;
-    String username;
-
-    if (topic.posters.isNotEmpty && topic.posters.first.user != null) {
-      final op = topic.posters.first.user!;
-      avatarUrl = op.avatarTemplate.startsWith('http')
-          ? op.getAvatarUrl(size: 56)
-          : '${AppConstants.baseUrl}${op.getAvatarUrl(size: 56)}';
-      username = op.username;
-    } else {
-      username = topic.lastPosterUsername ?? '';
-    }
+    final avatarUrl = post.getAvatarUrl(size: 56);
 
     return Row(
       children: [
         SmartAvatar(
-          imageUrl: avatarUrl,
+          imageUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
           radius: 14,
-          fallbackText: username,
+          fallbackText: post.username,
         ),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
-            username,
+            post.username,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w500,
               color: theme.colorScheme.onSurface,
@@ -255,7 +226,7 @@ class TopicPreviewDialog extends ConsumerWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (topic.createdAt != null) ...[
+        if (post.postNumber > 1) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Text(
@@ -265,10 +236,18 @@ class TopicPreviewDialog extends ConsumerWidget {
               ),
             ),
           ),
-          Text(
-            '创建于 ${TimeUtils.formatRelativeTime(topic.createdAt)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '#${post.postNumber}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -282,6 +261,7 @@ class TopicPreviewDialog extends ConsumerWidget {
     Category? category,
     IconData? faIcon,
     String? logoUrl,
+    SearchTopic? topic,
   ) {
     return Wrap(
       spacing: 8,
@@ -292,10 +272,10 @@ class TopicPreviewDialog extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: _parseColor(category.color).withValues(alpha:0.1),
+              color: _parseColor(category.color).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: _parseColor(category.color).withValues(alpha:0.3),
+                color: _parseColor(category.color).withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -345,27 +325,28 @@ class TopicPreviewDialog extends ConsumerWidget {
           ),
 
         // 标签
-        ...topic.tags.map(
-          (tag) => TagBadge(
-            name: tag.name,
-            size: const BadgeSize(
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              radius: 8,
-              iconSize: 12,
-              fontSize: 13,
-            ),
-            textStyle: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+        if (topic != null)
+          ...topic.tags.map(
+            (tag) => TagBadge(
+              name: tag.name,
+              size: const BadgeSize(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                radius: 8,
+                iconSize: 12,
+                fontSize: 13,
+              ),
+              textStyle: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
 
-  Widget _buildExcerpt(BuildContext context, ThemeData theme) {
-    // 清理 excerpt 中的 HTML 标签
-    final cleanExcerpt = topic.excerpt!
+  Widget _buildBlurb(BuildContext context, ThemeData theme) {
+    // 清理 blurb 中的 HTML 标签
+    final cleanBlurb = post.blurb
         .replaceAll(RegExp(r'<[^>]*>'), '')
         .replaceAll('&hellip;', '...')
         .replaceAll('&amp;', '&')
@@ -375,7 +356,7 @@ class TopicPreviewDialog extends ConsumerWidget {
         .replaceAll('&#39;', "'")
         .trim();
 
-    if (cleanExcerpt.isEmpty) return const SizedBox.shrink();
+    if (cleanBlurb.isEmpty) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -384,7 +365,7 @@ class TopicPreviewDialog extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        cleanExcerpt,
+        cleanBlurb,
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
           height: 1.6,
@@ -395,97 +376,45 @@ class TopicPreviewDialog extends ConsumerWidget {
     );
   }
 
-  Widget _buildParticipants(BuildContext context, ThemeData theme) {
-    final participants = topic.posters.take(5).toList();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Text(
-            '参与者',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SizedBox(
-              height: 28,
-              child: Stack(
-                children: List.generate(participants.length, (index) {
-                  final poster = participants[index];
-                  String? avatarUrl;
-                  String fallback = '';
-
-                  if (poster.user != null) {
-                    avatarUrl = poster.user!.avatarTemplate.startsWith('http')
-                        ? poster.user!.getAvatarUrl(size: 56)
-                        : '${AppConstants.baseUrl}${poster.user!.getAvatarUrl(size: 56)}';
-                    fallback = poster.user!.username;
-                  }
-
-                  return Positioned(
-                    left: index * 20.0,
-                    child: SmartAvatar(
-                      imageUrl: avatarUrl,
-                      radius: 14,
-                      fallbackText: fallback,
-                      border: Border.all(
-                        color: theme.colorScheme.surface,
-                        width: 2,
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStats(BuildContext context, ThemeData theme) {
+  Widget _buildStats(
+      BuildContext context, ThemeData theme, SearchTopic? topic) {
     return Column(
       children: [
         Row(
           children: [
-            Expanded(
-              child: _buildStatItem(
-                context,
-                Icons.chat_bubble_outline_rounded,
-                '${(topic.postsCount - 1).clamp(0, 999999)} 条回复',
+            if (topic != null)
+              Expanded(
+                child: _buildStatItem(
+                  context,
+                  Icons.chat_bubble_outline_rounded,
+                  '${(topic.postsCount - 1).clamp(0, 999999)} 条回复',
+                ),
               ),
-            ),
-            Expanded(
-              child: _buildStatItem(
-                context,
-                Icons.favorite_border_rounded,
-                '${NumberUtils.formatCount(topic.likeCount)} 点赞',
+            if (post.likeCount > 0)
+              Expanded(
+                child: _buildStatItem(
+                  context,
+                  Icons.favorite_border_rounded,
+                  '${NumberUtils.formatCount(post.likeCount)} 点赞',
+                ),
               ),
-            ),
           ],
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatItem(
-                context,
-                Icons.visibility_outlined,
-                '${NumberUtils.formatCount(topic.views)} 浏览',
+        if (topic != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  context,
+                  Icons.visibility_outlined,
+                  '${NumberUtils.formatCount(topic.views)} 浏览',
+                ),
               ),
-            ),
-            Expanded(
-              child: _buildStatItem(
-                context,
-                Icons.access_time,
-                '最后回复 ${TimeUtils.formatRelativeTime(topic.lastPostedAt)}',
-              ),
-            ),
-          ],
-        ),
+              const Expanded(child: SizedBox()),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -518,7 +447,7 @@ class TopicPreviewDialog extends ConsumerWidget {
         color: theme.colorScheme.surfaceContainerLow,
         border: Border(
           top: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -533,20 +462,21 @@ class TopicPreviewDialog extends ConsumerWidget {
           const Spacer(),
 
           // 分享按钮
-          IconButton(
-            onPressed: () {
-              final user = ref.read(currentUserProvider).value;
-              final prefs = ref.read(preferencesProvider);
-              final url = ShareUtils.buildShareUrl(
-                path: '/t/topic/${topic.id}',
-                username: user?.username,
-                anonymousShare: prefs.anonymousShare,
-              );
-              SharePlus.instance.share(ShareParams(text: url));
-            },
-            icon: const Icon(Icons.share_outlined, size: 20),
-            tooltip: '分享',
-          ),
+          if (post.topic != null)
+            IconButton(
+              onPressed: () {
+                final user = ref.read(currentUserProvider).value;
+                final prefs = ref.read(preferencesProvider);
+                final url = ShareUtils.buildShareUrl(
+                  path: '/t/topic/${post.topic!.id}',
+                  username: user?.username,
+                  anonymousShare: prefs.anonymousShare,
+                );
+                SharePlus.instance.share(ShareParams(text: url));
+              },
+              icon: const Icon(Icons.share_outlined, size: 20),
+              tooltip: '分享',
+            ),
 
           const SizedBox(width: 8),
 

@@ -8,6 +8,8 @@ import '../widgets/common/smart_avatar.dart';
 import '../widgets/common/loading_spinner.dart';
 import '../widgets/search/search_filter_panel.dart';
 import '../widgets/search/search_post_card.dart';
+import '../widgets/search/search_preview_dialog.dart';
+import '../providers/preferences_provider.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'user_profile_page.dart';
 
@@ -772,22 +774,44 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             itemBuilder: (context, index) {
               // 帖子结果（标准 + AI 混合）
               if (index < _allPosts.length) {
+                final searchPost = _allPosts[index];
+                final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
                 return SearchPostCard(
-                  post: _allPosts[index],
+                  post: searchPost,
                   onTap: () {
-                    final topic = _allPosts[index].topic;
+                    final topic = searchPost.topic;
                     if (topic != null) {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => TopicDetailPage(
                             topicId: topic.id,
-                            scrollToPostNumber: _allPosts[index].postNumber,
+                            scrollToPostNumber: searchPost.postNumber,
                           ),
                         ),
                       );
                     }
                   },
+                  onLongPress: enableLongPress
+                      ? () => SearchPreviewDialog.show(
+                            context,
+                            post: searchPost,
+                            onOpen: () {
+                              final topic = searchPost.topic;
+                              if (topic != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TopicDetailPage(
+                                      topicId: topic.id,
+                                      scrollToPostNumber: searchPost.postNumber,
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          )
+                      : null,
                 );
               }
 

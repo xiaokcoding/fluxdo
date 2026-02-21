@@ -13,11 +13,13 @@ import '../common/topic_badges.dart';
 class SearchPostCard extends ConsumerWidget {
   final SearchPost post;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const SearchPostCard({
     super.key,
     required this.post,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -57,6 +59,7 @@ class SearchPostCard extends ConsumerWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
           child: Row(
