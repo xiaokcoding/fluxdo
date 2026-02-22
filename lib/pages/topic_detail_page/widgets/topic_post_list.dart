@@ -134,6 +134,7 @@ class _TopicPostListState extends State<TopicPostList> {
     // 找到第一个在视口顶部附近的帖子，同时收集所有可见帖子
     int? firstVisiblePostIndex;
     double bestOffset = double.infinity;
+    bool foundScrolledPast = false; // 是否已找到滑出顶部的帖子
     final visiblePostNumbers = <int>{};
 
     for (final entry in tagMap.entries) {
@@ -161,14 +162,17 @@ class _TopicPostListState extends State<TopicPostList> {
 
         // 找到最靠近可见区域顶部（或刚超过顶部）的帖子
         if (relativeTopY <= 0 && relativeTopY.abs() < bestOffset) {
+          if (!foundScrolledPast) {
+            // 首次找到滑出顶部的帖子，重置 bestOffset（优先级高于未滑出的）
+            bestOffset = double.infinity;
+            foundScrolledPast = true;
+          }
           bestOffset = relativeTopY.abs();
           firstVisiblePostIndex = postIndex;
-        } else if (firstVisiblePostIndex == null && relativeTopY > 0) {
-          // 没有帖子超过顶部，取最靠近顶部的
-          if (relativeTopY < bestOffset) {
-            bestOffset = relativeTopY;
-            firstVisiblePostIndex = postIndex;
-          }
+        } else if (!foundScrolledPast && relativeTopY > 0 && relativeTopY < bestOffset) {
+          // 没有帖子滑出顶部时，取最靠近顶部的
+          bestOffset = relativeTopY;
+          firstVisiblePostIndex = postIndex;
         }
       }
     }
