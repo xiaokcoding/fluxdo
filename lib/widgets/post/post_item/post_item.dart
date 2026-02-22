@@ -21,6 +21,7 @@ import 'widgets/post_replies_list.dart';
 import 'widgets/post_solution_banner.dart';
 import 'widgets/post_reaction_picker.dart';
 import 'widgets/post_flag_sheet.dart';
+import 'widgets/post_reaction_users_sheet.dart';
 import 'widgets/post_stamp_painter.dart';
 
 part 'actions/_reaction_actions.dart';
@@ -491,6 +492,7 @@ class _PostItemState extends ConsumerState<PostItem> {
                       showRepliesNotifier: _showRepliesNotifier,
                       onToggleLike: _toggleLike,
                       onShowReactionPicker: () => _showReactionPicker(context, theme),
+                      onShowReactionUsers: (reactionId) => _showReactionUsers(context, reactionId: reactionId),
                       onReply: widget.onReply,
                       onShowMoreMenu: () => _showMoreMenu(context, theme),
                       onToggleReplies: _toggleReplies,

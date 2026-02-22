@@ -60,6 +60,19 @@ extension _ReactionActions on _PostItemState {
     );
   }
 
+  /// 显示回应人列表
+  void _showReactionUsers(BuildContext context, {String? reactionId}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => PostReactionUsersSheet(
+        postId: widget.post.id,
+        initialReactionId: reactionId,
+      ),
+    );
+  }
+
   /// 切换回应
   Future<void> _toggleReaction(String reactionId) async {
     try {

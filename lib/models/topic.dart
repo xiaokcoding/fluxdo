@@ -391,6 +391,58 @@ class PostReaction {
   }
 }
 
+/// 回应人信息
+class ReactionUser {
+  final String username;
+  final String? name;
+  final String avatarTemplate;
+
+  const ReactionUser({
+    required this.username,
+    this.name,
+    required this.avatarTemplate,
+  });
+
+  factory ReactionUser.fromJson(Map<String, dynamic> json) {
+    return ReactionUser(
+      username: json['username'] as String? ?? '',
+      name: json['name'] as String?,
+      avatarTemplate: json['avatar_template'] as String? ?? '',
+    );
+  }
+
+  String getAvatarUrl({int size = 96}) {
+    final template = avatarTemplate.replaceAll('{size}', '$size');
+    if (template.startsWith('http')) return template;
+    if (template.startsWith('/')) return 'https://linux.do$template';
+    return 'https://linux.do/$template';
+  }
+}
+
+/// 按回应类型分组的用户列表
+class ReactionUsersGroup {
+  final String id; // emoji 名称
+  final int count;
+  final List<ReactionUser> users;
+
+  const ReactionUsersGroup({
+    required this.id,
+    required this.count,
+    required this.users,
+  });
+
+  factory ReactionUsersGroup.fromJson(Map<String, dynamic> json) {
+    return ReactionUsersGroup(
+      id: json['id'] as String? ?? '',
+      count: json['count'] as int? ?? 0,
+      users: (json['users'] as List<dynamic>?)
+              ?.map((e) => ReactionUser.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+
 /// 帖子（回复）数据模型
 class Post {
   final int id;

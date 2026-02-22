@@ -314,6 +314,18 @@ mixin _PostsMixin on _DiscourseServiceBase {
     }
   }
 
+  /// 获取帖子回应人列表
+  Future<List<ReactionUsersGroup>> getReactionUsers(int postId) async {
+    final response = await _dio.get(
+      '/discourse-reactions/posts/$postId/reactions-users.json',
+    );
+    final data = response.data as Map<String, dynamic>;
+    final list = data['reaction_users'] as List? ?? [];
+    return list
+        .map((e) => ReactionUsersGroup.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// 追踪链接点击
   void trackClick({
     required String url,

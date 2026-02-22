@@ -25,6 +25,7 @@ class PostActionBar extends StatelessWidget {
   final ValueNotifier<bool> showRepliesNotifier;
   final VoidCallback onToggleLike;
   final VoidCallback onShowReactionPicker;
+  final void Function(String? reactionId) onShowReactionUsers;
   final VoidCallback? onReply;
   final VoidCallback onShowMoreMenu;
   final VoidCallback onToggleReplies;
@@ -43,6 +44,7 @@ class PostActionBar extends StatelessWidget {
     required this.showRepliesNotifier,
     required this.onToggleLike,
     required this.onShowReactionPicker,
+    required this.onShowReactionUsers,
     this.onReply,
     required this.onShowMoreMenu,
     required this.onToggleReplies,
@@ -126,73 +128,97 @@ class PostActionBar extends StatelessWidget {
         const Spacer(),
         if (!isGuest) ...[
           // 回应和赞
+          // 左右两个 GestureDetector 是兄弟关系（非嵌套），避免手势竞争
           if (!isOwnPost || reactions.isNotEmpty)
-            GestureDetector(
+            Container(
               key: likeButtonKey,
-              onTap: isOwnPost ? null : (isLiking ? null : onToggleLike),
-              onLongPress: isOwnPost ? null : onShowReactionPicker,
-              child: Container(
-                height: 36,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
+              height: 36,
+              decoration: BoxDecoration(
+                color: currentUserReaction != null
+                    ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                    : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
                   color: currentUserReaction != null
-                      ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                      : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: currentUserReaction != null
-                        ? theme.colorScheme.primary.withValues(alpha: 0.2)
-                        : Colors.transparent,
-                  ),
+                      ? theme.colorScheme.primary.withValues(alpha: 0.2)
+                      : Colors.transparent,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 回应表情预览
-                    if (reactions.isNotEmpty && !(reactions.length == 1 && reactions.first.id == 'heart'))
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ...reactions.take(3).map((reaction) => Padding(
-                            padding: const EdgeInsets.only(right: 2),
-                            child: Image(
-                              image: discourseImageProvider(_getEmojiUrl(reaction.id)),
-                              width: 16,
-                              height: 16,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 左侧区域：回应表情 + 数量 → 查看回应人
+                  // 父级兜底 → 全部 tab，子级每个 emoji → 对应 tab
+                  if (reactions.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => onShowReactionUsers(null),
+                      onLongPress: isOwnPost ? null : onShowReactionPicker,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        height: 36,
+                        padding: const EdgeInsets.only(left: 12),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!(reactions.length == 1 && reactions.first.id == 'heart'))
+                              ...reactions.take(3).map((reaction) => GestureDetector(
+                                onTap: () => onShowReactionUsers(reaction.id),
+                                behavior: HitTestBehavior.opaque,
+                                child: Container(
+                                  height: 36,
+                                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                                  alignment: Alignment.center,
+                                  child: Image(
+                                    image: discourseImageProvider(_getEmojiUrl(reaction.id)),
+                                    width: 16,
+                                    height: 16,
+                                  ),
+                                ),
+                              )),
+                            if (!(reactions.length == 1 && reactions.first.id == 'heart'))
+                              const SizedBox(width: 4),
+                            Text(
+                              '${reactions.fold(0, (sum, r) => sum + r.count)}',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: currentUserReaction != null
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          )),
-                          const SizedBox(width: 6),
-                        ],
-                      ),
-
-                    // 赞数量
-                    if (reactions.isNotEmpty)
-                      Text(
-                        '${reactions.fold(0, (sum, r) => sum + r.count)}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: currentUserReaction != null
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.bold,
+                            const SizedBox(width: 6),
+                          ],
                         ),
                       ),
-                    if (reactions.isNotEmpty) const SizedBox(width: 6),
+                    ),
 
-                    // 点赞图标/回应图标
-                    if (currentUserReaction != null)
-                      Image(
-                        image: discourseImageProvider(_getEmojiUrl(currentUserReaction!.id)),
-                        width: 20,
-                        height: 20,
-                      )
-                    else
-                      Icon(
-                        Icons.favorite_border,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
+                  // 右侧区域：点赞/回应图标 → 点赞/取消
+                  GestureDetector(
+                    onTap: isOwnPost ? null : (isLiking ? null : onToggleLike),
+                    onLongPress: isOwnPost ? null : onShowReactionPicker,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      height: 36,
+                      padding: EdgeInsets.only(
+                        left: reactions.isNotEmpty ? 0 : 12,
+                        right: 12,
                       ),
-                  ],
-                ),
+                      alignment: Alignment.center,
+                      child: currentUserReaction != null
+                          ? Image(
+                              image: discourseImageProvider(_getEmojiUrl(currentUserReaction!.id)),
+                              width: 20,
+                              height: 20,
+                            )
+                          : Icon(
+                              Icons.favorite_border,
+                              size: 20,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
